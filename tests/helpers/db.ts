@@ -1,5 +1,6 @@
 import { db, sql } from "@/lib/data/db";
 import { users } from "@/lib/data/schema";
+import type { Actor } from "@/lib/services/actor";
 
 export async function resetDb(): Promise<void> {
   await sql`TRUNCATE activities, tracker_checkins, trackers, plan_item_files, plan_items, plans,
@@ -17,7 +18,7 @@ export async function resetDb(): Promise<void> {
   await sql`INSERT INTO scoring_config (weights) VALUES (${weights}::jsonb)`;
 }
 
-export async function createTestUser(email = "tester@test.local") {
+export async function createTestUser(email = "tester@test.local"): Promise<Actor> {
   const [u] = await db.insert(users).values({ email, name: "Tester" }).returning();
-  return { kind: "user" as const, userId: u.id, label: email };
+  return { kind: "user", userId: u.id, label: email };
 }
