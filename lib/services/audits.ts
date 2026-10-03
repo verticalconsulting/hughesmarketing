@@ -1,6 +1,6 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/data/db";
-import { audits, auditScores, files, scoringConfig } from "@/lib/data/schema";
+import { db, type DbOrTx } from "@/lib/data/db";
+import { audits, auditScores, brands, files, scoringConfig } from "@/lib/data/schema";
 import {
   CATEGORIES,
   computeHealth,
@@ -63,19 +63,21 @@ export async function recordAudit(input: {
 }): Promise<RecordAuditResult> {
   const brand = await getBrandBySlug(input.brandSlug);
 
-  if (input.requestId) {
-    const [prior] = await db.select().from(audits).where(eq(audits.requestId, input.requestId));
-    if (prior) {
-      return {
-        auditId: prior.id,
-        health: prior.health,
-        coverage: prior.coverage,
-        partial: isPartial(prior.coverage),
-        delta: await deltaFor(prior.brandId, prior.id),
-        duplicate: true,
-      };
-    }
-  }
+  const findPrior = async (executor: DbOrTx) => {
+    if (!input.requestId) return null;
+    const [prior] = await executor.select().from(audits).where(eq(audits.requestId, input.requestId));
+    return prior ?? null;
+  };
+  const duplicateResult = async (prior: typeof audits.$inferSelect): Promise<RecordAuditResult> => ({
+    auditId: prior.id,
+    health: prior.health,
+    coverage: prior.coverage,
+    partial: isPartial(prior.coverage),
+    delta: await deltaFor(prior.brandId, prior.id),
+    duplicate: true,
+  });
+  const early = await findPrior(db);
+  if (early) return duplicateResult(early);
 
   if (input.scores.length === 0) throw new ValidationError("At least one category score is required", "scores");
   const map: CategoryScores = {};
@@ -95,7 +97,11 @@ export async function recordAudit(input: {
 
   const fileId = input.reportPath ? await findFileId(brand.id, input.reportPath) : null;
 
-  const auditId = await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx): Promise<{ prior: typeof audits.$inferSelect } | { auditId: string }> => {
+    // Serialize per brand so a retry racing the original call finds the original's request id.
+    await tx.select({ id: brands.id }).from(brands).where(eq(brands.id, brand.id)).for("update");
+    const raced = await findPrior(tx);
+    if (raced) return { prior: raced };
     const [audit] = await tx
       .insert(audits)
       .values({
@@ -128,10 +134,11 @@ export async function recordAudit(input: {
       },
       tx,
     );
-    return audit.id;
+    return { auditId: audit.id };
   });
 
-  return { auditId, ...result, delta: await deltaFor(brand.id, auditId), duplicate: false };
+  if ("prior" in created) return duplicateResult(created.prior);
+  return { auditId: created.auditId, ...result, delta: await deltaFor(brand.id, created.auditId), duplicate: false };
 }
 
 export async function listAudits(brandId: string): Promise<AuditWithScores[]> {

@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
-import { db } from "@/lib/data/db";
-import { files, itemStatusEnum, planItemFiles, planItems, plans, trackers } from "@/lib/data/schema";
+import { db, type DbOrTx } from "@/lib/data/db";
+import { brands, files, itemStatusEnum, planItemFiles, planItems, plans, trackers } from "@/lib/data/schema";
 import type { FunnelStage } from "@/lib/domain/funnel";
 import type { Actor } from "./actor";
 import { logActivity } from "./activity";
@@ -75,13 +75,15 @@ export async function createPlanVersion(input: {
   actor: Actor;
 }): Promise<{ planId: string; version: number; itemIds: string[]; duplicate: boolean }> {
   const brand = await getBrandBySlug(input.brandSlug);
-  if (input.requestId) {
-    const [prior] = await db.select().from(plans).where(eq(plans.requestId, input.requestId));
-    if (prior) {
-      const items = await db.select({ id: planItems.id }).from(planItems).where(eq(planItems.planId, prior.id));
-      return { planId: prior.id, version: prior.version, itemIds: items.map((i) => i.id), duplicate: true };
-    }
-  }
+  const priorResult = async (executor: DbOrTx) => {
+    if (!input.requestId) return null;
+    const [prior] = await executor.select().from(plans).where(eq(plans.requestId, input.requestId));
+    if (!prior) return null;
+    const items = await executor.select({ id: planItems.id }).from(planItems).where(eq(planItems.planId, prior.id));
+    return { planId: prior.id, version: prior.version, itemIds: items.map((i) => i.id), duplicate: true };
+  };
+  const early = await priorResult(db);
+  if (early) return early;
   if (!input.plan.objective?.trim()) throw new ValidationError("Plan objective is required", "objective");
   for (const item of input.items) {
     if (!item.title?.trim()) throw new ValidationError("Every plan item needs a title", "items");
@@ -89,6 +91,11 @@ export async function createPlanVersion(input: {
   const fileId = input.plan.planFilePath ? await findFileId(brand.id, input.plan.planFilePath) : null;
 
   return db.transaction(async (tx) => {
+    // Serialize plan creation per brand: version numbers and the single-active-plan rule depend on it,
+    // and a retry racing the original call must see the original's request id.
+    await tx.select({ id: brands.id }).from(brands).where(eq(brands.id, brand.id)).for("update");
+    const raced = await priorResult(tx);
+    if (raced) return raced;
     const [{ v }] = await tx.select({ v: max(plans.version) }).from(plans).where(eq(plans.brandId, brand.id));
     const version = (v ?? 0) + 1;
     await tx

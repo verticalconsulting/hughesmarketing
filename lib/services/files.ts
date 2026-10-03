@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { db, type DbOrTx } from "@/lib/data/db";
 import { files, fileVersions } from "@/lib/data/schema";
 import { guessContentType, isTextContentType } from "@/lib/domain/content-type";
@@ -59,6 +59,9 @@ export async function writeFile(input: {
   const blob = getBlobStore();
 
   return db.transaction(async (tx) => {
+    // `FOR UPDATE` cannot lock a row that does not exist yet, so two first writes of one path would both
+    // try to insert it. A transaction-scoped advisory lock on scope+path serializes them.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.brandId ?? "shared"}:${path}`}))`);
     const [existing] = await tx.select().from(files).where(and(scope(input.brandId), eq(files.path, path))).for("update");
     const current = existing?.currentVersion ?? 0;
     if (input.expectedVersion !== undefined && input.expectedVersion !== current) {
