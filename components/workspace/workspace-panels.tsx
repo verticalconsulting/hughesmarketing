@@ -1,6 +1,6 @@
 "use client";
 import { PanelRight } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { RightPane } from "./right-pane";
@@ -16,7 +16,9 @@ export function WorkspacePanels({ brandSlug, children }: { brandSlug: string; ch
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="42%" minSize="25%" collapsible collapsedSize="0%">
-            <RightPane brandSlug={brandSlug} />
+            <Suspense fallback={null}>
+              <RightPane brandSlug={brandSlug} />
+            </Suspense>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
@@ -26,7 +28,15 @@ export function WorkspacePanels({ brandSlug, children }: { brandSlug: string; ch
             <PanelRight className="size-4" /> {mobilePane === "main" ? "Files & tools" : "Back to workspace"}
           </Button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{mobilePane === "main" ? children : <RightPane brandSlug={brandSlug} />}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {mobilePane === "main" ? (
+            children
+          ) : (
+            <Suspense fallback={null}>
+              <RightPane brandSlug={brandSlug} />
+            </Suspense>
+          )}
+        </div>
       </div>
     </>
   );
