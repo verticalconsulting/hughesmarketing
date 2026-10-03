@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { band, computeHealth, DEFAULT_WEIGHTS, summarizeHealth } from "./scoring";
+import { band, computeHealth, DEFAULT_WEIGHTS, formatDelta, summarizeHealth } from "./scoring";
 
 describe("computeHealth", () => {
   it("computes the weighted average over all six categories", () => {
@@ -58,6 +58,14 @@ describe("summarizeHealth", () => {
   it("returns null delta with a single full audit and nulls with none", () => {
     expect(summarizeHealth([{ health: 40, coverage: 1 }])).toEqual({ health: 40, delta: null });
     expect(summarizeHealth([])).toEqual({ health: null, delta: null });
+  });
+});
+
+describe("formatDelta", () => {
+  it("shows the direction once, without a doubled minus sign", () => {
+    expect(formatDelta(12)).toBe("▲ +12");
+    expect(formatDelta(0)).toBe("▲ +0");
+    expect(formatDelta(-12)).toBe("▼ 12");
   });
 });
 

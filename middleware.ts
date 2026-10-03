@@ -29,5 +29,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // /api/mcp authenticates with bearer tokens; /login and /auth must stay public.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/mcp|login|auth).*)"],
+  // Each exemption is anchored to a path boundary so /authorize or /loginhelp are still protected.
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|api/mcp(?:/|$)|login(?:/|$)|auth(?:/|$)).*)"],
 };

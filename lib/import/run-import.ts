@@ -109,35 +109,44 @@ export async function runImport(root: string, actor: Actor): Promise<ImportRepor
       }
     }
 
+    // One bad plan or integration must not abort the brands after it: record it and keep going.
     const planMd = await readFs(path.join(dir, "PLAN.md"), "utf8").catch(() => null);
     if (planMd) {
-      const h = parsePlanHeader(planMd);
-      if (h.objective) {
-        const r = await createPlanVersion({
-          brandSlug: brand.slug,
-          requestId: `import:${brand.slug}:PLAN.md`,
-          plan: {
-            objective: h.objective,
-            primaryChannel: h.primaryChannel,
-            secondaryChannels: h.secondaryChannels,
-            monthlyBudget: h.monthlyBudget,
-            weeklyHours: h.weeklyHours,
-            timeline: h.timeline,
-            summary: h.summary,
-            planFilePath: "PLAN.md",
-          },
-          items: [],
-          actor,
-        });
-        if (!r.duplicate) report.plans++;
+      try {
+        const h = parsePlanHeader(planMd);
+        if (h.objective) {
+          const r = await createPlanVersion({
+            brandSlug: brand.slug,
+            requestId: `import:${brand.slug}:PLAN.md`,
+            plan: {
+              objective: h.objective,
+              primaryChannel: h.primaryChannel,
+              secondaryChannels: h.secondaryChannels,
+              monthlyBudget: h.monthlyBudget,
+              weeklyHours: h.weeklyHours,
+              timeline: h.timeline,
+              summary: h.summary,
+              planFilePath: "PLAN.md",
+            },
+            items: [],
+            actor,
+          });
+          if (!r.duplicate) report.plans++;
+        }
+      } catch (e) {
+        report.failed.push({ path: path.join(dir, "PLAN.md"), error: (e as Error).message });
       }
     }
 
     const integrationsMd = await readFs(path.join(dir, "INTEGRATIONS.md"), "utf8").catch(() => null);
     if (integrationsMd) {
       for (const i of parseIntegrations(integrationsMd)) {
-        await upsertIntegration({ brandSlug: brand.slug, service: i.service, status: "connected", identifiers: i.identifiers, actor });
-        report.integrations++;
+        try {
+          await upsertIntegration({ brandSlug: brand.slug, service: i.service, status: "connected", identifiers: i.identifiers, actor });
+          report.integrations++;
+        } catch (e) {
+          report.failed.push({ path: `${path.join(dir, "INTEGRATIONS.md")} (${i.service})`, error: (e as Error).message });
+        }
       }
     }
   }

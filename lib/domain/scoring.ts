@@ -57,6 +57,11 @@ export function summarizeHealth(
   return { health: latest, delta: latest !== null && previous !== null ? latest - previous : null };
 }
 
+// The arrow already carries the sign of a drop, so show its magnitude (not "▼ -12").
+export function formatDelta(delta: number): string {
+  return delta >= 0 ? `▲ +${delta}` : `▼ ${Math.abs(delta)}`;
+}
+
 export type Band = "red" | "amber" | "green";
 export function band(score: number): Band {
   if (score < 40) return "red";

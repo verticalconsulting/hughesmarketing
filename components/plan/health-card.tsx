@@ -1,4 +1,4 @@
-import { band } from "@/lib/domain/scoring";
+import { band, formatDelta } from "@/lib/domain/scoring";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 
@@ -15,8 +15,7 @@ export function HealthCard({ health, delta, history }: { health: number | null; 
         <div data-testid="health-delta" className="text-xs text-muted-foreground">
           {delta === null ? "first audit" : (
             <span className={delta >= 0 ? "text-band-green" : "text-band-red"}>
-              {delta >= 0 ? "▲ +" : "▼ "}
-              {delta} since last audit
+              {formatDelta(delta)} since last audit
             </span>
           )}
         </div>
