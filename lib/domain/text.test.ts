@@ -20,6 +20,11 @@ describe("text helpers", () => {
     expect(closeMatches("zzz", all)).toEqual([]);
   });
 
+  it("does not treat a tiny needle as an exact match for every slug that contains it", () => {
+    const all = ["roofcoms-com", "myelitegutters-com", "cx"];
+    expect(closeMatches("co", all)).toEqual(["cx"]);
+  });
+
   it("assigns a stable color per slug", () => {
     expect(colorForSlug("a")).toBe(colorForSlug("a"));
     expect(colorForSlug("a")).toMatch(/^#[0-9a-f]{6}$/i);

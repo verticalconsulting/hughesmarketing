@@ -28,10 +28,13 @@ function levenshtein(a: string, b: string): number {
 
 export function closeMatches(needle: string, haystack: string[], max = 3): string[] {
   const n = needle.toLowerCase();
+  // Containment counts as a perfect match only when the shorter string is long enough to be meaningful;
+  // otherwise "co" would tie at 0 with every slug that happens to contain it.
+  const contains = (h: string) => Math.min(h.length, n.length) >= 4 && (h.includes(n) || n.includes(h));
   return haystack
-    .map((h) => ({ h, d: h.includes(n) || n.includes(h) ? 0 : levenshtein(n, h) }))
+    .map((h) => ({ h, d: contains(h) ? 0 : levenshtein(n, h) }))
     .filter((x) => x.d <= 3)
-    .sort((a, b) => a.d - b.d)
+    .sort((a, b) => a.d - b.d || Math.abs(a.h.length - n.length) - Math.abs(b.h.length - n.length))
     .slice(0, max)
     .map((x) => x.h);
 }
