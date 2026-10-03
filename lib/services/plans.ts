@@ -177,6 +177,10 @@ export async function updatePlanItem(input: {
   if (input.status && !(AGENT_STATUSES as readonly string[]).includes(input.status)) {
     throw new ValidationError(`Status "${input.status}" can only be set in the app (agents may use ${AGENT_STATUSES.join(", ")})`, "status");
   }
+  // needs_approval and declined are decisions owned by the app; an agent may not move an item out of them.
+  if (input.status && (item.status === "needs_approval" || item.status === "declined")) {
+    throw new ApprovalError(`"${item.title}" is ${item.status === "declined" ? "declined" : "awaiting approval"}; only the app can change its status`);
+  }
   if ((input.status === "active" || input.status === "done") && item.needsApproval && !item.approvedAt) {
     throw new ApprovalError(`"${item.title}" needs approval in the app before it can be started or completed`);
   }

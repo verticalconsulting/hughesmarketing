@@ -104,6 +104,15 @@ describe("plans service", () => {
     await expect(updatePlanItem({ itemId: item.id, tracker, actor })).rejects.toBeInstanceOf(ConflictError);
   });
 
+  it("does not let agents revive items that await or were refused approval", async () => {
+    const { actor, brand } = await setup();
+    const gated = (await getActivePlan(brand.id))!.items[0];
+    await expect(updatePlanItem({ itemId: gated.id, status: "planned", actor })).rejects.toBeInstanceOf(ApprovalError);
+    await decidePlanItem({ itemId: gated.id, decision: "decline", actor });
+    await expect(updatePlanItem({ itemId: gated.id, status: "planned", actor })).rejects.toBeInstanceOf(ApprovalError);
+    expect((await getNextPlanItem("roof-co"))?.title).toBe("Publish Flowood page");
+  });
+
   it("only decides items that are awaiting approval", async () => {
     const { actor, brand } = await setup();
     const plain = (await getActivePlan(brand.id))!.items[1];
