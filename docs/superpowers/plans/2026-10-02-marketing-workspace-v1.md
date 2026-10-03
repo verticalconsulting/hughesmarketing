@@ -26,7 +26,7 @@
 - Importer never imports `_Personal-Automations`, `_Duplicates-to-delete`, dot-files/dot-folders, or `desktop.ini`.
 - Palette: primary `#4F46E5`, background `#FAFAF9`, white cards; funnel colors Acquisition blue, Activation teal, Retention violet, Referral amber, Revenue green; full dark mode.
 - zod must be v3 (`zod@^3.25`) — the MCP SDK requires it.
-- Node 24, pnpm 10. All commands below run from `D:\sources\hughes-marketing` in Git Bash.
+- Node 24, pnpm 10, Docker Desktop with the WSL 2 engine (Task 0). All commands below run from `D:\sources\hughes-marketing` in Git Bash.
 
 ## Review Focus
 
@@ -82,6 +82,72 @@ tests/
   e2e/{global-setup,workspace.spec}.ts
 drizzle.config.ts  vitest.config.ts  playwright.config.ts  .env.example  .env.test
 ```
+
+---
+
+### Task 0: Docker Desktop for local Supabase
+
+Local Supabase (Task 5) runs Postgres, Auth, and Storage in Docker containers, and every integration and E2E test depends on it. This task makes sure Docker Desktop is installed, uses the WSL 2 backend, is running, and starts automatically.
+
+**Files:** none (machine setup only).
+
+**Interfaces:**
+- Produces: a running Docker engine reachable at `npipe:////./pipe/dockerDesktopLinuxEngine`; `docker info` succeeds from Git Bash.
+
+As of 2026-10-02 this machine already has the Docker CLI 29.1.2 and WSL 2 (default distro Ubuntu-22.04), but the engine was **not running**. Each step checks first and only installs what is missing. Installing software needs Windows administrator approval (a UAC prompt) — if a step needs it, stop and ask the user to approve it or to run the command themselves with `! <command>`.
+
+- [ ] **Step 1: Check what is already installed**
+
+```bash
+docker --version
+wsl --status
+docker info --format '{{.ServerVersion}}'
+```
+Expected on this machine: a Docker version line, WSL "Default Version: 2", and an error from `docker info` ("failed to connect to the docker API") because the engine is stopped. If `docker --version` works, skip Steps 2–3.
+
+- [ ] **Step 2: Ensure WSL 2 is installed** (only if `wsl --status` fails or reports version 1)
+
+```bash
+wsl --install --no-distribution
+wsl --set-default-version 2
+```
+Expected: "The operation completed successfully." Windows may require a reboot — if it says so, ask the user to reboot, then continue.
+
+- [ ] **Step 3: Install Docker Desktop** (only if `docker --version` failed)
+
+```bash
+winget install --id Docker.DockerDesktop --exact --accept-package-agreements --accept-source-agreements
+```
+Expected: "Successfully installed". Then ask the user to sign out of Windows and back in (the installer adds them to the `docker-users` group, which takes effect at the next sign-in).
+
+- [ ] **Step 4: Start Docker Desktop and wait for the engine**
+
+```bash
+"/c/Program Files/Docker/Docker/Docker Desktop.exe" &
+for i in $(seq 1 60); do docker info --format '{{.ServerVersion}}' >/dev/null 2>&1 && break; sleep 3; done
+docker info --format 'Engine {{.ServerVersion}} on {{.OperatingSystem}}'
+```
+Expected: `Engine <version> on Docker Desktop`. On first launch Docker Desktop shows a license agreement and an optional sign-in — ask the user to accept the agreement and skip sign-in (an account is not required). If the loop times out, ask the user whether Docker Desktop shows an error (common: "WSL needs updating" → run `wsl --update`).
+
+- [ ] **Step 5: Confirm settings for Supabase**
+
+Ask the user to open Docker Desktop → Settings and confirm:
+- **General → Use the WSL 2 based engine** is checked.
+- **General → Start Docker Desktop when you sign in to your computer** is checked (so tests work after a reboot).
+- **Resources → WSL integration**: enabling integration with Ubuntu-22.04 is optional; Supabase runs from Git Bash on Windows.
+
+- [ ] **Step 6: Verify containers run**
+
+```bash
+docker run --rm hello-world
+```
+Expected: output includes "Hello from Docker!". Then confirm the Supabase CLI can reach Docker:
+```bash
+pnpm dlx supabase --version
+```
+Expected: a version number (the CLI is downloaded on first use).
+
+No commit — this task changes the machine, not the repository.
 
 ---
 
@@ -1126,7 +1192,7 @@ git commit -m "feat(domain): questions, front matter, file tree, recency, checkl
 
 - [ ] **Step 1: Start local Supabase**
 
-Docker Desktop must be running.
+Docker Desktop must be running (Task 0). Check with `docker info --format '{{.ServerVersion}}'`; if it fails, start Docker Desktop as in Task 0 Step 4.
 ```bash
 pnpm dlx supabase init
 ```
