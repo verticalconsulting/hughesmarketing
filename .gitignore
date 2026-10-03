@@ -50,3 +50,4 @@ supabase/.temp
 !.env.test
 /supabase/.branches
 /supabase/.temp
+tests/e2e/.state.json

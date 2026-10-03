@@ -7,7 +7,10 @@ export interface BlobStore {
   signedUrl(key: string, seconds: number): Promise<string>;
 }
 
-const memory = new Map<string, { data: Uint8Array; contentType: string }>();
+// Kept on globalThis: Next compiles route handlers and server actions as separate bundles in dev,
+// and each would otherwise get its own empty Map.
+const globalForBlobs = globalThis as unknown as { __hmMemoryBlobs?: Map<string, { data: Uint8Array; contentType: string }> };
+const memory = (globalForBlobs.__hmMemoryBlobs ??= new Map<string, { data: Uint8Array; contentType: string }>());
 
 class MemoryBlobStore implements BlobStore {
   async put(key: string, data: Uint8Array, contentType: string) {
