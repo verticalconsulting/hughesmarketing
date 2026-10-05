@@ -55,10 +55,10 @@ export function formatReport(input: ReportInput): string {
       continue;
     }
     if (plan.moves.length) {
-      lines.push("### Moves", "", "| Reason | From | To |", "|---|---|---|");
+      lines.push("### Moves", "", "| Reason | From | To | Detail |", "|---|---|---|---|");
       for (const m of plan.moves) {
         const reason = m.optional ? `${m.reason} (optional)` : m.reason;
-        lines.push(`| ${reason} | ${cell(m.from)} | ${cell(m.to)} |`);
+        lines.push(`| ${reason} | ${cell(m.from)} | ${cell(m.to)} | ${cell(m.detail ?? "")} |`);
       }
       lines.push("");
     }

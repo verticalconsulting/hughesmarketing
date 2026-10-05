@@ -11,6 +11,19 @@ const HEAD_LINES = 14;
 const HEAD_BYTES = 4096;
 const MAX_REFERENCE_SCAN_BYTES = 512 * 1024;
 
+/** The AI Assets folder holds "Hughes Files". Pointing one level too high would treat all of My Drive as clients. */
+export async function assertAssetsRoot(root: string): Promise<void> {
+  try {
+    if ((await stat(path.join(root, "Hughes Files"))).isDirectory()) return;
+  } catch {
+    // falls through to the error below
+  }
+  throw new Error(
+    `${root} does not look like the AI Assets folder (no "Hughes Files" inside). ` +
+      `Point at the folder that holds the client folders and "Hughes Files".`,
+  );
+}
+
 export async function listClients(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   return entries

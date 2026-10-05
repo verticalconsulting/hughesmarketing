@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findStaleReferences, listClients, scanClient } from "./scan";
+import { assertAssetsRoot, findStaleReferences, listClients, scanClient } from "./scan";
 
 let root: string;
 beforeEach(async () => {
@@ -18,6 +18,17 @@ async function put(rel: string, content: string) {
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, content);
 }
+
+describe("assertAssetsRoot", () => {
+  it("accepts the AI Assets folder (it holds Hughes Files)", async () => {
+    await put("Hughes Files/x.md", "x");
+    await expect(assertAssetsRoot(root)).resolves.toBeUndefined();
+  });
+  it("refuses a folder that is not AI Assets, such as My Drive one level up", async () => {
+    await put("AI Assets/Hughes Files/x.md", "x");
+    await expect(assertAssetsRoot(root)).rejects.toThrow(/does not look like the AI Assets folder/);
+  });
+});
 
 describe("listClients", () => {
   it("skips shared, personal, duplicate, and dot folders and loose files", async () => {

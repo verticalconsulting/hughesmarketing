@@ -5,10 +5,12 @@
 //   pnpm drive:restructure execute <AI-Assets-path> --manifest <file.json> [--include-optional] --yes
 //   pnpm drive:restructure undo <manifest.json>
 import { writeFile } from "node:fs/promises";
+import path from "node:path";
+import { resolveCrossClient } from "../lib/drive-layout/cross-client";
 import { executeMoves, undoMoves } from "../lib/drive-layout/execute";
 import { planClient } from "../lib/drive-layout/plan";
 import { emptiedFolders, formatReport } from "../lib/drive-layout/report";
-import { findStaleReferences, listClients, scanClient, type StaleReference } from "../lib/drive-layout/scan";
+import { assertAssetsRoot, findStaleReferences, listClients, scanClient, type StaleReference } from "../lib/drive-layout/scan";
 import type { ClientPlan, FileEntry } from "../lib/drive-layout/types";
 
 const [command, ...rest] = process.argv.slice(2);
@@ -30,24 +32,33 @@ function usage(): never {
   process.exit(2);
 }
 
-async function planAll(root: string) {
-  const plans: ClientPlan[] = [];
+async function planAll(rootArg: string) {
+  const root = path.resolve(rootArg);
+  await assertAssetsRoot(root);
+  const clients = await listClients(root);
+  const scanned = new Map<string, FileEntry[]>();
+  const perClient: ClientPlan[] = [];
+  for (const client of clients) {
+    const files = await scanClient(root, client);
+    scanned.set(client, files);
+    perClient.push(planClient(client, files));
+  }
+  // Quarantine targets sit outside every client folder, so collisions between clients are only visible here.
+  const plans = await resolveCrossClient(root, perClient);
   const stale: Record<string, StaleReference[]> = {};
   const emptied: Record<string, string[]> = {};
-  for (const client of await listClients(root)) {
-    const files: FileEntry[] = await scanClient(root, client);
-    const plan = planClient(client, files);
-    plans.push(plan);
-    stale[client] = plan.moves.length ? await findStaleReferences(root, client, plan.moves) : [];
-    emptied[client] = emptiedFolders(files, plan.moves, client);
+  for (const plan of plans) {
+    stale[plan.client] = plan.moves.length ? await findStaleReferences(root, plan.client, plan.moves) : [];
+    emptied[plan.client] = emptiedFolders(scanned.get(plan.client) ?? [], plan.moves, plan.client);
   }
-  return { plans, stale, emptied };
+  return { root, clients, plans, stale, emptied };
 }
 
 async function main() {
   if (command === "dry-run") {
     const root = positional[0] ?? usage();
-    const report = formatReport({ generatedAt: new Date().toISOString().slice(0, 10), ...(await planAll(root)) });
+    const { plans, stale, emptied } = await planAll(root);
+    const report = formatReport({ generatedAt: new Date().toISOString().slice(0, 10), plans, stale, emptied });
     const out = flags.get("--out");
     if (typeof out === "string" && out) {
       await writeFile(out, report, "utf8");
@@ -66,10 +77,11 @@ async function main() {
       console.error("Refusing to move files without --yes. Run dry-run first and review the report.");
       process.exit(2);
     }
-    const { plans } = await planAll(root);
+    const { root: resolvedRoot, clients, plans } = await planAll(root);
     const moves = plans.flatMap((p) => p.moves);
     const includeOptional = flags.get("--include-optional") === true;
-    const { moved } = await executeMoves(root, moves, manifest, { includeOptional });
+    console.log(`Root: ${resolvedRoot}\nClients: ${clients.join(", ")}\nApplying ${moves.filter((m) => includeOptional || !m.optional).length} move(s).`);
+    const { moved } = await executeMoves(resolvedRoot, moves, manifest, { includeOptional });
     console.log(`Moved ${moved} file(s). Manifest: ${manifest}. Undo with: pnpm drive:restructure undo ${manifest}`);
     return;
   }

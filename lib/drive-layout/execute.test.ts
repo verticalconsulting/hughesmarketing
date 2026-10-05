@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { executeMoves, preflight, undoMoves, type Manifest } from "./execute";
+import { executeMoves, preflight, renameNoClobber, undoMoves, writeJsonAtomic, type Manifest } from "./execute";
 import { planClient } from "./plan";
 import { scanClient } from "./scan";
 
@@ -113,6 +113,78 @@ describe("executeMoves + undoMoves", () => {
     const result = await undoMoves(manifestPath);
     expect(result.skipped.some((s) => s.includes(moves[0].from))).toBe(true);
     expect((await snapshot())[moves[0].from]).toBe("a new file appeared at the old location");
+  });
+});
+
+describe("executor hardening", () => {
+  it("refuses to overwrite an existing manifest, because it is the only undo record", async () => {
+    const moves = await planScenario();
+    await executeMoves(root, moves, manifestPath, { includeOptional: false });
+    const before = await readFile(manifestPath, "utf8");
+
+    await expect(executeMoves(root, moves, manifestPath, { includeOptional: false })).rejects.toThrow(/manifest already exists/i);
+    expect(await readFile(manifestPath, "utf8")).toBe(before);
+  });
+
+  it("renameNoClobber never replaces an existing destination", async () => {
+    await put("Acme.com/a.md", "a");
+    await put("Acme.com/b.md", "b");
+    await expect(
+      renameNoClobber(path.join(root, "Acme.com", "a.md"), path.join(root, "Acme.com", "b.md")),
+    ).rejects.toThrow(/appeared during the run/);
+    const snap = await snapshot();
+    expect(snap["Acme.com/a.md"]).toBe("a");
+    expect(snap["Acme.com/b.md"]).toBe("b");
+  });
+
+  it("writeJsonAtomic replaces the file and leaves no temp file behind", async () => {
+    const file = path.join(root, "m.json");
+    await writeJsonAtomic(file, { n: 1 });
+    await writeJsonAtomic(file, { n: 2 });
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ n: 2 });
+    expect(Object.keys(await snapshot())).toEqual(["m.json"]);
+  });
+
+  it("rejects a move that would leave the AI Assets root, before moving anything", async () => {
+    await put("Acme.com/a.md", "a");
+    await expect(
+      executeMoves(root, [{ from: "Acme.com/a.md", to: "../evil.md", reason: "topic-folder" }], manifestPath, { includeOptional: true }),
+    ).rejects.toThrow(/outside/);
+    expect((await snapshot())["Acme.com/a.md"]).toBe("a");
+    await expect(stat(manifestPath)).rejects.toThrow();
+  });
+
+  it("undo rejects a manifest that is malformed or points outside its root", async () => {
+    await writeFile(manifestPath, JSON.stringify({ version: 1 }));
+    await expect(undoMoves(manifestPath)).rejects.toThrow(/not a valid manifest/i);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        root,
+        createdAt: "x",
+        done: 1,
+        moves: [{ from: "Acme.com/a.md", to: "../../evil.md", reason: "topic-folder" }],
+      }),
+    );
+    await expect(undoMoves(manifestPath)).rejects.toThrow(/outside/);
+  });
+
+  it("reports progress and the undo command when a move fails mid-run", async () => {
+    await put("Acme.com/a.md", "a");
+    await put("Acme.com/c.md", "c");
+    const moves = [
+      { from: "Acme.com/a.md", to: "Acme.com/b.md", reason: "topic-folder" as const },
+      // b.md becomes a file after move 1, so creating b.md/ as a folder fails on move 2.
+      { from: "Acme.com/c.md", to: "Acme.com/b.md/inner.md", reason: "topic-folder" as const },
+    ];
+    await expect(executeMoves(root, moves, manifestPath, { includeOptional: true })).rejects.toThrow(/1 of 2 moves completed/);
+
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Manifest;
+    expect(manifest.done).toBe(1);
+    expect((await undoMoves(manifestPath)).restored).toBe(1);
+    expect((await snapshot())["Acme.com/a.md"]).toBe("a");
   });
 });
 

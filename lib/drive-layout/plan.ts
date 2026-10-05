@@ -30,12 +30,19 @@ export function planClient(client: string, input: FileEntry[]): ClientPlan {
   const at = (p: string) => `${client}/${p}`;
 
   // 1. Classify download-suffix files.
+  // A copy only counts as a duplicate of a file with the same name and the same bytes. Matching on bytes alone
+  // would call every empty "(1)" file a copy of every other empty file.
+  const nameAndHash = (name: string, sha: string) => `${name}\u0000${sha}`;
   const suffixed: Suffixed[] = [];
-  const plainByHash = new Map<string, FileEntry>();
+  const plainByNameAndHash = new Map<string, FileEntry>();
   for (const file of files) {
     const parts = splitDownloadSuffix(baseOf(file.path));
-    if (parts) suffixed.push({ file, parts });
-    else if (!plainByHash.has(file.sha256)) plainByHash.set(file.sha256, file);
+    if (parts) {
+      suffixed.push({ file, parts });
+      continue;
+    }
+    const key = nameAndHash(baseOf(file.path), file.sha256);
+    if (!plainByNameAndHash.has(key)) plainByNameAndHash.set(key, file);
   }
 
   const quarantine = new Map<string, Quarantined>(); // client-relative path -> why
@@ -48,7 +55,7 @@ export function planClient(client: string, input: FileEntry[]): ClientPlan {
       else conflicts.push({ path: at(s.file.path), kind: "duplicate-differs", detail: `content differs from ${strippedPath}; left in place` });
       continue;
     }
-    const twin = plainByHash.get(s.file.sha256);
+    const twin = plainByNameAndHash.get(nameAndHash(s.parts.stripped, s.file.sha256));
     if (twin) {
       quarantine.set(s.file.path, { parts: s.parts, detail: `identical to ${twin.path}` });
       continue;
@@ -58,7 +65,10 @@ export function planClient(client: string, input: FileEntry[]): ClientPlan {
 
   const keepers = new Map<string, DownloadSuffix>(); // lone files that get an optional suffix-strip rename
   const groups = new Map<string, Suffixed[]>();
-  for (const s of lone) groups.set(s.file.sha256, [...(groups.get(s.file.sha256) ?? []), s]);
+  for (const s of lone) {
+    const key = `${dirOf(s.file.path)}\u0000${nameAndHash(s.parts.stripped, s.file.sha256)}`;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
   for (const group of groups.values()) {
     group.sort((a, b) => a.parts.n - b.parts.n || (a.file.path < b.file.path ? -1 : 1));
     keepers.set(group[0].file.path, group[0].parts);

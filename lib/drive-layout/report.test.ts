@@ -45,6 +45,31 @@ describe("formatReport", () => {
     { client: "Clean.org", moves: [], conflicts: [], notes: [] },
   ];
 
+  it("shows why a file was classified as a duplicate", () => {
+    const out = formatReport({
+      generatedAt: "2026-10-05",
+      plans: [
+        {
+          client: "Acme.com",
+          moves: [
+            {
+              from: "Acme.com/seo/k (1).md",
+              to: "_Duplicates-to-delete/Acme.com-k-copy1.md",
+              reason: "duplicate",
+              detail: "identical to deliverables/k.md",
+            },
+          ],
+          conflicts: [],
+          notes: [],
+        },
+      ],
+      stale: {},
+      emptied: {},
+    });
+    expect(out).toContain("| Reason | From | To | Detail |");
+    expect(out).toContain("identical to deliverables/k.md");
+  });
+
   it("summarises totals and each client", () => {
     const out = formatReport({
       generatedAt: "2026-10-05",

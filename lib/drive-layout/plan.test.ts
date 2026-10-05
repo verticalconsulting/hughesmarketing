@@ -129,6 +129,26 @@ describe("planClient: download-suffix files", () => {
   });
 });
 
+describe("planClient: duplicates must share a name, not just content", () => {
+  it("does not treat an unrelated file with identical content as the original", () => {
+    const plan = planClient(C, [f("memory/notes (1).md", "EMPTY"), f("plans/todo (1).md", "EMPTY")]);
+    expect(plan.moves.map((m) => [m.reason, m.from])).toEqual([
+      ["strip-suffix", `${C}/memory/notes (1).md`],
+      ["strip-suffix", `${C}/plans/todo (1).md`],
+    ]);
+  });
+
+  it("does not quarantine a copy whose only identical file has a different name", () => {
+    const plan = planClient(C, [f("data/report (1).csv", "X"), f("deliverables/totally-different-name.csv", "X")]);
+    expect(plan.moves.map((m) => m.reason)).toEqual(["strip-suffix"]);
+  });
+
+  it("only groups identical lone copies that share a folder and name", () => {
+    const plan = planClient(C, [f("data/alpha (1).csv", "X"), f("data/beta (1).csv", "X")]);
+    expect(plan.moves.some((m) => m.reason === "duplicate")).toBe(false);
+  });
+});
+
 describe("planClient: collisions", () => {
   it("never moves onto an existing file, compared case-insensitively", () => {
     const plan = planClient(C, [f("seo/a.md", "A"), f("resources/seo/A.md", "B")]);
