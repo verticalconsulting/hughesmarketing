@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { emptiedFolders, formatReport } from "./report";
+import type { ClientPlan, FileEntry } from "./types";
+
+const f = (path: string): FileEntry => ({ path, sha256: path, mtimeMs: 0, head: "" });
+
+describe("emptiedFolders", () => {
+  it("lists folders whose files all moved out", () => {
+    const files = [f("local-service-pages/a.md"), f("local-service-pages/b.md"), f("seo/x.md"), f("seo/keep.md")];
+    const moves = [
+      { from: "C/local-service-pages/a.md", to: "C/content-drafts/a.md", reason: "local-service-pages" as const },
+      { from: "C/local-service-pages/b.md", to: "C/content-drafts/b.md", reason: "local-service-pages" as const },
+      { from: "C/seo/x.md", to: "C/resources/seo/x.md", reason: "topic-folder" as const },
+    ];
+    expect(emptiedFolders(files, moves, "C")).toEqual(["local-service-pages"]);
+  });
+});
+
+describe("formatReport", () => {
+  const plans: ClientPlan[] = [
+    {
+      client: "Acme.com",
+      moves: [
+        { from: "Acme.com/seo/a.md", to: "Acme.com/resources/seo/a.md", reason: "topic-folder" },
+        { from: "Acme.com/resources/x (1).md", to: "Acme.com/resources/x.md", reason: "strip-suffix", optional: true },
+      ],
+      conflicts: [{ path: "Acme.com/data/s (1).csv", kind: "destination-exists", detail: "shared destination" }],
+      notes: [{ path: "Acme.com/workflow-results/w.md", message: "used its modified time (2026-09-24)" }],
+    },
+    { client: "Clean.org", moves: [], conflicts: [], notes: [] },
+  ];
+
+  it("summarises totals and each client", () => {
+    const out = formatReport({
+      generatedAt: "2026-10-05",
+      plans,
+      stale: { "Acme.com": [{ file: "Acme.com/deliverables/n.md", mentions: ["seo/"] }] },
+      emptied: { "Acme.com": ["seo"] },
+    });
+    expect(out).toContain("Totals: 1 moves, 1 optional renames, 1 conflicts");
+    expect(out).toContain("## Acme.com");
+    expect(out).toContain("| topic-folder | Acme.com/seo/a.md | Acme.com/resources/seo/a.md |");
+    expect(out).toContain("| strip-suffix (optional) |");
+    expect(out).toContain("destination-exists");
+    expect(out).toContain("used its modified time");
+    expect(out).toContain("Acme.com/deliverables/n.md");
+    expect(out).toContain("## Clean.org\n\nNo changes needed.");
+  });
+});
