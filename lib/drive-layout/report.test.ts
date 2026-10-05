@@ -14,6 +14,21 @@ describe("emptiedFolders", () => {
     ];
     expect(emptiedFolders(files, moves, "C")).toEqual(["local-service-pages"]);
   });
+
+  it("does not call a folder emptied when a move lands in it", () => {
+    const files = [f("plans/p (1).md")];
+    const moves = [{ from: "C/plans/p (1).md", to: "C/plans/p.md", reason: "strip-suffix" as const, optional: true }];
+    expect(emptiedFolders(files, moves, "C")).toEqual([]);
+  });
+
+  it("follows chained moves to the final location", () => {
+    const files = [f("seo/a (1).md")];
+    const moves = [
+      { from: "C/seo/a (1).md", to: "C/resources/seo/a (1).md", reason: "topic-folder" as const },
+      { from: "C/resources/seo/a (1).md", to: "C/resources/seo/a.md", reason: "strip-suffix" as const, optional: true },
+    ];
+    expect(emptiedFolders(files, moves, "C")).toEqual(["seo"]);
+  });
 });
 
 describe("formatReport", () => {

@@ -1,17 +1,24 @@
 import type { StaleReference } from "./scan";
 import type { ClientPlan, FileEntry, Move } from "./types";
 
-/** Client-relative folders that will have no files left once these moves run. Folders are left in place, never removed. */
+/**
+ * Client-relative folders that will have no files left once these moves run. Moves are applied in order, so a file
+ * renamed inside its folder, or moved on twice, is counted where it finally lands. Folders are left in place, never removed.
+ */
 export function emptiedFolders(files: FileEntry[], moves: Move[], client: string): string[] {
   const prefix = `${client}/`;
-  const moved = new Set(moves.filter((m) => m.from.startsWith(prefix)).map((m) => m.from.slice(prefix.length)));
+  const final = new Set(files.map((f) => f.path));
   const candidates = new Set<string>();
-  for (const p of moved) {
-    const parts = p.split("/").slice(0, -1);
+  for (const m of moves) {
+    if (!m.from.startsWith(prefix)) continue;
+    const from = m.from.slice(prefix.length);
+    final.delete(from);
+    if (m.to.startsWith(prefix)) final.add(m.to.slice(prefix.length));
+    const parts = from.split("/").slice(0, -1);
     for (let i = 1; i <= parts.length; i++) candidates.add(parts.slice(0, i).join("/"));
   }
-  const stay = files.map((f) => f.path).filter((p) => !moved.has(p));
-  return [...candidates].filter((dir) => !stay.some((p) => p.startsWith(`${dir}/`))).sort();
+  const remaining = [...final];
+  return [...candidates].filter((dir) => !remaining.some((p) => p.startsWith(`${dir}/`))).sort();
 }
 
 export type ReportInput = {

@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "cross-env ENV_FILE=.env.test drizzle-kit migrate",
-    "import:ai-assets": "tsx --env-file=.env.local scripts/import-ai-assets.ts"
+    "import:ai-assets": "tsx --env-file=.env.local scripts/import-ai-assets.ts",
+    "drive:restructure": "tsx scripts/restructure-drive.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
