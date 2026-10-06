@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTestUser } from "../helpers/db";
+import { METRICS } from "@/lib/domain/metrics";
 import { actorFromAuth, authenticateBearer } from "@/lib/mcp/auth";
 import { runTool } from "@/lib/mcp/run";
 import { findTool, tools } from "@/lib/mcp/tools";
@@ -142,6 +143,13 @@ describe("MCP tools", () => {
     const missing = await call("sync_metrics", { brand: "no-such-brand" }, actor);
     expect(missing.isError).toBe(true);
     expect(missing.body.error).toBe("not_found");
+  });
+
+  it("documents every auto-check-in tracker source from the metrics catalog on start_tracker", () => {
+    const canonical = METRICS.filter((m) => !m.dimensional).map((m) => `${m.source}:${m.id}`);
+    expect(canonical).toHaveLength(7);
+    const description = findTool("start_tracker").input.source.description ?? "";
+    for (const entry of canonical) expect(description, entry).toContain(entry);
   });
 
   it("authenticates bearer tokens into an actor", async () => {
