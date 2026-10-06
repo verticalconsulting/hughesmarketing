@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "drizzle-orm": "^0.45.3",
+    "google-auth-library": "^11.1.0",
     "highlight.js": "^11.12.0",
     "lucide-react": "^1.50.0",
     "mcp-handler": "^1.1.0",

@@ -16,6 +16,7 @@ const schema = z.object({
     .optional()
     .transform((v) => v === "true"),
   AUTH_BYPASS_EMAIL: z.string().optional(),
+  GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
