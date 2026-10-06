@@ -164,14 +164,14 @@ Record the outcome. For every failure, copy the exact error text.
 
 Lets the app pull its own metrics. Skip this and everything else still works; the Analytics sections just say to connect.
 
-Prerequisite: the Vercel project's Node.js version must be **22.x or later**, because `google-auth-library` v11 requires Node >= 22 (Project Settings → General → Node.js Version).
+Prerequisite: the Vercel project's Node.js version must be **22.x or later**, because `google-auth-library` v11 requires Node >= 22. `package.json` declares `engines.node >=22`, so Vercel picks a compatible version automatically; still double-check Project Settings → General → Node.js Version.
 
 1. **[HUMAN]** Google Cloud Console → pick or create a project → APIs & Services → Library: enable **Google Analytics Data API** and **Google Search Console API**.
 2. **[HUMAN]** IAM & Admin → Service accounts → Create (no project roles needed) → Keys → Add key → JSON. Keep the file out of the repo and out of chat.
-3. **[HUMAN]** Put the key on Vercel as **one line**: `node -e "console.log(JSON.stringify(require('./key.json')))"` prints it; paste that into `GOOGLE_SERVICE_ACCOUNT_JSON` for Production and Preview and mark it **Sensitive**. Redeploy. Delete the key file afterwards. A pretty-printed multi-line paste fails with "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON".
+3. **[HUMAN]** Put the key on Vercel as **one line**, sent to the clipboard so it never appears in terminal scrollback: in Windows PowerShell run `node -e "process.stdout.write(JSON.stringify(require('./key.json')))" | Set-Clipboard` (macOS: `... | pbcopy`). Paste it into `GOOGLE_SERVICE_ACCOUNT_JSON` for Production and Preview and mark it **Sensitive**, then clear the clipboard and delete the key file. Redeploy. A pretty-printed multi-line paste fails with "GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON".
 4. **[HUMAN]** For each brand, add the service account's email (the `client_email` in the key) as a **Viewer** on the GA4 property (Admin → Property access management) and as a user on the Search Console site (Settings → Users and permissions).
 5. **[AGENT or HUMAN]** In the app, Integrations pane for the brand: set Google Analytics 4 to **Connected** with `property_id=<digits>` and Search Console to **Connected** with `site_url=sc-domain:example.com` (or a full `https://example.com/` URL). Click **Sync now** on each.
-6. Expected: a toast like "Google Analytics 4 synced (270 rows)" (3 metrics x 90 days), then charts on the Analytics tab. Errors show the exact reason, for example "The service account … does not have access to GA4 property …": that means step 4 is missing for that property. The first sync backfills 90 days; later syncs re-pull the last 7.
+6. Expected: a toast like "Google Analytics 4 synced (270 rows)" (3 metrics x 90 days), then charts on the Analytics tab. Errors show the exact reason, for example "The service account … does not have access to GA4 property …": that means step 4 is missing for that property. The first sync backfills 90 days; later syncs re-pull the last 7. Changing `property_id` / `site_url` on an integration clears that source's stored metrics and sync state, and the next **Sync now** re-backfills 90 days.
 7. **[AGENT]** `pnpm tsx scripts/verify-deployment.ts https://<url>` must still pass, including "no public response leaks service-account key material".
 
 ## Rollback and cleanup

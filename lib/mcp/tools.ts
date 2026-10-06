@@ -30,7 +30,7 @@ const trackerShape = {
   source: z
     .string()
     .describe(
-      "Where the number comes from, e.g. GA4, GSC, Google Ads. Use exactly ga4:sessions, ga4:users, ga4:key_events, gsc:clicks, gsc:impressions, gsc:ctr or gsc:position and the app checks in automatically after each sync_metrics (set baseline_value to the same measure summed over the window_days before baseline_at).",
+      "Where the number comes from, e.g. GA4, GSC, Google Ads. Use exactly ga4:sessions, ga4:users, ga4:key_events, gsc:clicks, gsc:impressions, gsc:ctr or gsc:position and the app checks in automatically after each sync_metrics (set baseline_value to the same measure over the window_days before baseline_at: summed for ga4:sessions, ga4:users, ga4:key_events, gsc:clicks and gsc:impressions; for gsc:ctr use total clicks divided by total impressions, and for gsc:position the impressions-weighted average position).",
     ),
   window_days: z.number().int().min(1).describe("Days to wait before judging impact"),
   threshold_pct: z.number().positive().optional().describe("Minimum % change that counts as impact (default 5)"),
@@ -304,7 +304,7 @@ export const tools: AnyTool[] = [
     input: {
       brand: brandArg,
       source: z.enum(METRIC_SOURCES).optional().describe("Only this source. Omit for both ga4 and gsc."),
-      days: z.number().int().min(1).max(400).optional().describe("How many days back to pull. Omit for the default (90 on the first sync, otherwise a rolling 7)."),
+      days: z.number().int().min(1).max(400).optional().describe("How many days back to pull. Omit for the default (90 on the first sync, otherwise a rolling 7 days, longer if the last sync was more than 7 days ago)."),
     },
     handler: async ({ brand, source, days }, { actor }) => ({ results: await syncBrandMetrics({ brandSlug: brand, source, days, actor }) }),
   }),

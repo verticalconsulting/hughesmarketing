@@ -166,6 +166,11 @@ describe("identifiers", () => {
     expect(siteIdentifier({ site: "b" })).toBe("b");
     expect(siteIdentifier({})).toBeUndefined();
   });
+
+  it("treats an empty site_url as unset so the legacy `site` key still applies", () => {
+    expect(siteIdentifier({ site_url: "", site: "b" })).toBe("b");
+    expect(siteIdentifier({ site_url: "" })).toBeUndefined();
+  });
 });
 
 describe("mergeSeries", () => {

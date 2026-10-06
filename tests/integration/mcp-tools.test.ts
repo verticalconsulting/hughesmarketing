@@ -152,6 +152,12 @@ describe("MCP tools", () => {
     for (const entry of canonical) expect(description, entry).toContain(entry);
   });
 
+  it("tells agents how to compute ratio and weighted baselines for gsc:ctr and gsc:position", () => {
+    const description = findTool("start_tracker").input.source.description ?? "";
+    expect(description).toContain("impressions-weighted");
+    expect(description).toContain("total clicks");
+  });
+
   it("authenticates bearer tokens into an actor", async () => {
     const actor = await createTestUser("corey@test.local");
     const { token } = await createApiToken(actor.userId, "Claude Desktop");

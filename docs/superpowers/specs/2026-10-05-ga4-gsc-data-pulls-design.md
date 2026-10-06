@@ -101,10 +101,10 @@ tables.
 ## 5. Sync behavior
 
 - **Inputs:** brand slug, optional `source` (default: all connected of `ga4`, `gsc`), optional `days`.
-- **Range:** first sync for a source (no `metric_points`) backfills **90 days**; later syncs re-pull a rolling
+- **Range:** the first sync for a source (the one where `synced_from` is null) backfills **90 days**; later syncs re-pull a rolling
   **7 days** to absorb GSC's late-arriving data. `days` overrides, max 400. The range ends at yesterday (GSC data
   for today is incomplete). If the last successful sync was more than 7 days ago the rolling window is lengthened
-  to cover the gap (capped at 400), so no day is skipped. The first sync is the one where `synced_from` is null.
+  to cover the gap (capped at 400), so no day is skipped.
 - **Eligibility:** an integration is syncable when `status = connected` and its required identifier exists:
   `property_id` for `ga4`, `site_url` for `gsc`. Otherwise the source is skipped with a `skipped` reason, not an error.
 - **Upsert:** `INSERT ... ON CONFLICT (brand_id, source, metric, date, dimension) DO UPDATE SET value`.
@@ -116,8 +116,8 @@ tables.
   `integrations.status`; the owner or agent still controls that.
 - **Concurrency:** a Postgres advisory lock per (brand, source) makes a second concurrent sync return
   `skipped: "already running"`.
-- **Activity:** one `integration` activity row per source, e.g. "Google Analytics 4: synced 90 days (1,234 rows)"
-  or "Google Search Console: sync failed (permission denied)". Actor is the user or MCP token name.
+- **Activity:** one `integration` activity row per source, e.g. `Google Analytics 4: synced 2026-07-07 to 2026-10-04 (270 rows)`
+  or, on failure, `Google Analytics 4: sync failed (<message>)`. Actor is the user or MCP token name.
 
 ### Tracker feed
 
@@ -181,7 +181,7 @@ writes metrics). `get_brand_context` also returns each integration's `last_synce
 | 404 / invalid property or site | `bad_identifier`, naming the identifier. |
 | 429 / quota | `quota`, with a "try again later" message. One retry with backoff inside the connector. |
 | 5xx / network | `unavailable`, one retry, then error. |
-| Partial failure | Rows already upserted stay; the error is recorded; the other source still runs. |
+| Partial failure | Each source runs in its own transaction. A failing source writes nothing (its error is recorded on the integration); the other source's rows are unaffected. |
 
 Errors never include request bodies, tokens, or the key.
 
@@ -226,3 +226,5 @@ Amendments made during execution:
 - `integrations.synced_from` means the start of the contiguous span of days synced end to end, ending at the last successful sync; if a sync's range does not reach back to the day the previous sync ran, the span restarts at that sync's `from` (pure helper `nextSyncedFrom` in `lib/domain/metrics.ts`). It is not merely the earliest day ever synced.
 - `addCheckin` (`lib/services/trackers.ts`) gained an optional `tx`. The tracker feed runs each auto check-in in a savepoint inside the sync transaction, so one failing tracker cannot abort the sync and check-ins are atomic with the sync. A sync therefore holds one pooled connection for its whole duration.
 - The Search Console top-queries and top-pages fetch is capped at 4 pages (100,000 rows per dimension set). This can truncate the long tail only: rows arrive ordered by clicks descending, and the daily totals come from a separate, un-truncated request.
+- Re-pointing: when the stored GA4 `property_id` or Search Console `site_url` (normalised with `parsePropertyId` / `parseSiteUrl`) is replaced by a different non-empty value, `upsertIntegration` deletes that brand+source's `metric_points`, resets `synced_from`, `last_synced_at` and `last_sync_error` to null, and logs an extra activity row, all in one transaction, so the next sync backfills 90 days from scratch. It is not triggered by omitted or empty identifiers, a first-time set, or an equivalent format (`properties/123` vs `123`, a trailing slash).
+- `package.json` declares `engines.node >=22`, because `google-auth-library` v11 requires it and it is imported statically through `lib/services/metrics.ts`.

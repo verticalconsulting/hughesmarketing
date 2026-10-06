@@ -142,7 +142,7 @@ export function parseSiteUrl(raw: string | undefined): string | null {
 }
 
 /** The v1 importer stores the Search Console site under `site`; the editor documents `site_url`. Accept both. */
-export const siteIdentifier = (identifiers: Record<string, string>): string | undefined => identifiers.site_url ?? identifiers.site;
+export const siteIdentifier = (identifiers: Record<string, string>): string | undefined => identifiers.site_url || identifiers.site;
 
 export function mergeSeries(series: Record<string, Series>, opts: { zeroFill?: boolean } = {}): Record<string, string | number>[] {
   const byDate = new Map<string, Record<string, string | number>>();
