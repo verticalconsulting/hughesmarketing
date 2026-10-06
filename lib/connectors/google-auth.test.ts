@@ -1,3 +1,15 @@
+const getAccessTokenMock = vi.hoisted(() => vi.fn());
+vi.mock("google-auth-library", () => ({
+  JWT: class {
+    getAccessToken = getAccessTokenMock;
+  },
+}));
+vi.mock("@/lib/env", () => ({
+  getEnv: () => ({
+    GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "sync@proj.iam.gserviceaccount.com", private_key: "KEY" }),
+  }),
+}));
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectorError } from "./errors";
 import { apiBase, parseServiceAccount } from "./google-auth";
@@ -62,64 +74,93 @@ describe("apiBase", () => {
   });
 });
 
-// Test helper to verify error status extraction logic used in getAccessToken
-function extractStatusFromError(error: unknown): number | undefined {
-  return (error as any)?.response?.status ?? (error as any)?.status;
-}
-
-describe("getAccessToken error mapping", () => {
-  it("extracts status 400 from error.response.status", () => {
-    const err = new Error("Invalid credentials");
-    (err as any).response = { status: 400, data: "SECRET-KEY-MATERIAL" };
-    const status = extractStatusFromError(err);
-    expect(typeof status).toBe("number");
-    expect(status).toBe(400);
+describe("getAccessToken", () => {
+  beforeEach(() => {
+    getAccessTokenMock.mockReset();
   });
 
-  it("extracts status 503 from error.response.status", () => {
-    const err = new Error("Service unavailable");
-    (err as any).response = { status: 503, body: "SECRET-DATA" };
-    const status = extractStatusFromError(err);
-    expect(typeof status).toBe("number");
-    expect(status).toBe(503);
-  });
+  it("rejects with response.status 400 as permission_denied without leaking secrets", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    const err = Object.assign(new Error("invalid_grant SECRET-KEY-MATERIAL"), { response: { status: 400 } });
+    getAccessTokenMock.mockRejectedValue(err);
 
-  it("extracts status 429 from error.response.status", () => {
-    const err = new Error("Rate limited");
-    (err as any).response = { status: 429, body: "SECRET-DATA" };
-    const status = extractStatusFromError(err);
-    expect(typeof status).toBe("number");
-    expect(status).toBe(429);
-  });
-
-  it("extracts status from error.status root property", () => {
-    const err = new Error("Auth failed");
-    (err as any).status = 401;
-    const status = extractStatusFromError(err);
-    expect(typeof status).toBe("number");
-    expect(status).toBe(401);
-  });
-
-  it("returns undefined for network errors with no status property", () => {
-    const err = new TypeError("fetch failed");
-    const status = extractStatusFromError(err);
-    expect(status).toBeUndefined();
-  });
-
-  it("never includes error message details in safe error messages", () => {
-    const secretData = "SUPER-SECRET-KEY-MATERIAL";
-
-    // Verify that safe error messages don't contain secrets
-    const messages = [
-      "Could not reach Google to sign in the service account. Try again later.",
-      "Google rate-limited the service account sign-in. Try again later.",
-      "Google rejected the service account credentials. Check GOOGLE_SERVICE_ACCOUNT_JSON.",
-    ];
-
-    for (const msg of messages) {
-      expect(msg).not.toContain(secretData);
-      expect(msg).not.toContain("SECRET");
-      expect(msg).not.toContain("SECRET-KEY-MATERIAL");
+    try {
+      await getAccessToken("ga4");
+      throw new Error("expected to throw");
+    } catch (e) {
+      const cerr = e as ConnectorError;
+      expect(cerr.code).toBe("permission_denied");
+      expect(cerr.message).not.toContain("SECRET-KEY-MATERIAL");
+      expect(String(cerr.stack)).not.toContain("SECRET-KEY-MATERIAL");
     }
+  });
+
+  it("rejects with response.status 503 as unavailable without leaking secrets", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    const err = Object.assign(new Error("Service unavailable SECRET-KEY-MATERIAL"), { response: { status: 503 } });
+    getAccessTokenMock.mockRejectedValue(err);
+
+    try {
+      await getAccessToken("ga4");
+      throw new Error("expected to throw");
+    } catch (e) {
+      const cerr = e as ConnectorError;
+      expect(cerr.code).toBe("unavailable");
+      expect(cerr.message).not.toContain("SECRET-KEY-MATERIAL");
+      expect(String(cerr.stack)).not.toContain("SECRET-KEY-MATERIAL");
+    }
+  });
+
+  it("rejects with response.status 429 as quota without leaking secrets", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    const err = Object.assign(new Error("Too many requests SECRET-KEY-MATERIAL"), { response: { status: 429 } });
+    getAccessTokenMock.mockRejectedValue(err);
+
+    try {
+      await getAccessToken("ga4");
+      throw new Error("expected to throw");
+    } catch (e) {
+      const cerr = e as ConnectorError;
+      expect(cerr.code).toBe("quota");
+      expect(cerr.message).not.toContain("SECRET-KEY-MATERIAL");
+      expect(String(cerr.stack)).not.toContain("SECRET-KEY-MATERIAL");
+    }
+  });
+
+  it("rejects with plain error (no status) as unavailable without leaking secrets", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    getAccessTokenMock.mockRejectedValue(new Error("socket hang up SECRET-KEY-MATERIAL"));
+
+    try {
+      await getAccessToken("ga4");
+      throw new Error("expected to throw");
+    } catch (e) {
+      const cerr = e as ConnectorError;
+      expect(cerr.code).toBe("unavailable");
+      expect(cerr.message).not.toContain("SECRET-KEY-MATERIAL");
+      expect(String(cerr.stack)).not.toContain("SECRET-KEY-MATERIAL");
+    }
+  });
+
+  it("rejects with top-level status 401 as permission_denied", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    const err = Object.assign(new Error("Unauthorized"), { status: 401 });
+    getAccessTokenMock.mockRejectedValue(err);
+
+    try {
+      await getAccessToken("ga4");
+      throw new Error("expected to throw");
+    } catch (e) {
+      const cerr = e as ConnectorError;
+      expect(cerr.code).toBe("permission_denied");
+    }
+  });
+
+  it("resolves with token on success", async () => {
+    const { getAccessToken } = await import("./google-auth");
+    getAccessTokenMock.mockResolvedValue({ token: "tok-123" });
+
+    const token = await getAccessToken("ga4");
+    expect(token).toBe("tok-123");
   });
 });
