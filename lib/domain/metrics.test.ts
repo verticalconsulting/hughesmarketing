@@ -6,6 +6,7 @@ import {
   endOfDay,
   getMetric,
   mergeSeries,
+  nextSyncedFrom,
   pageLabel,
   parsePropertyId,
   parseSiteUrl,
@@ -115,6 +116,32 @@ describe("defaultSyncDays", () => {
 
   it("never exceeds 400 days", () => {
     expect(defaultSyncDays({ firstSync: false, lastSyncedAt: new Date("2025-01-01T00:00:00Z"), now })).toBe(400);
+  });
+});
+
+describe("nextSyncedFrom", () => {
+  // The previous sync ran on 2026-10-05, so it covered through 2026-10-04.
+  const lastSyncedAt = new Date("2026-10-05T12:00:00Z");
+
+  it("starts at this range on the first sync", () => {
+    expect(nextSyncedFrom({ syncedFrom: null, lastSyncedAt: null, from: "2026-07-07" })).toBe("2026-07-07");
+    expect(nextSyncedFrom({ syncedFrom: "2026-07-07", lastSyncedAt: null, from: "2026-09-28" })).toBe("2026-09-28");
+  });
+
+  it("keeps the old start after a rolling sync right behind the last one", () => {
+    expect(nextSyncedFrom({ syncedFrom: "2026-07-07", lastSyncedAt, from: "2026-09-28" })).toBe("2026-07-07");
+  });
+
+  it("keeps the old start when the range begins exactly on the day of the last sync", () => {
+    expect(nextSyncedFrom({ syncedFrom: "2026-07-07", lastSyncedAt, from: "2026-10-05" })).toBe("2026-07-07");
+  });
+
+  it("resets to this range when it starts one day later than that, leaving a gap", () => {
+    expect(nextSyncedFrom({ syncedFrom: "2026-07-07", lastSyncedAt, from: "2026-10-06" })).toBe("2026-10-06");
+  });
+
+  it("uses this range when it reaches back further than the old start", () => {
+    expect(nextSyncedFrom({ syncedFrom: "2026-09-01", lastSyncedAt, from: "2026-07-07" })).toBe("2026-07-07");
   });
 });
 

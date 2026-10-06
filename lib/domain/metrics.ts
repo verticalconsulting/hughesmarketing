@@ -106,6 +106,14 @@ export function defaultSyncDays(opts: { firstSync: boolean; lastSyncedAt: Date |
   return Math.min(MAX_DAYS, Math.max(ROLLING_DAYS, gap));
 }
 
+/** Start of the contiguous span of synced days ending at this sync's `to`. */
+export function nextSyncedFrom(opts: { syncedFrom: string | null; lastSyncedAt: Date | null; from: string }): string {
+  if (opts.syncedFrom === null || opts.lastSyncedAt === null) return opts.from;
+  // The previous sync covered through the day before it ran; contiguous if this range reaches back to the next day.
+  const touches = opts.from <= isoDay(opts.lastSyncedAt);
+  return touches && opts.syncedFrom < opts.from ? opts.syncedFrom : opts.from;
+}
+
 /** The last `days` complete UTC days: ends yesterday because today's data is incomplete. */
 export function syncRange(now: Date, days: number): { from: string; to: string } {
   const to = addDays(isoDay(now), -1);

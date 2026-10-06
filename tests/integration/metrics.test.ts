@@ -199,6 +199,35 @@ describe("syncBrandMetrics", () => {
     });
     expect((await sync(actor, { source: "ga4" }))[0].status).toBe("ok");
   });
+
+  it("runs only one of two truly concurrent syncs: no duplicate rows and a single tracker check-in", async () => {
+    const { actor, brand } = await setup();
+    await startTracker(actor, { source: "ga4:sessions", windowDays: 7, baselineValue: 50 });
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => (markStarted = resolve));
+    const gated: Connector = async (args) => {
+      markStarted();
+      await gate;
+      return fakeGa4(args);
+    };
+
+    const a = sync(actor, { source: "ga4", connectors: { ...connectors, ga4: gated } });
+    await started; // A is now inside its transaction, holding the lock
+    const [b] = await sync(actor, { source: "ga4" });
+    expect(b).toMatchObject({ status: "skipped", rows: 0 });
+    expect(b.message).toMatch(/already running/i);
+
+    release();
+    const [first] = await a;
+    expect(first).toMatchObject({ status: "ok", rows: 90, trackerCheckins: 1 });
+
+    const rows = await db.select().from(metricPoints).where(and(eq(metricPoints.brandId, brand.id), eq(metricPoints.source, "ga4")));
+    expect(rows).toHaveLength(90);
+    expect(await db.select().from(trackerCheckins)).toHaveLength(1);
+  });
 });
 
 describe("tracker feed", () => {
@@ -229,7 +258,7 @@ describe("tracker feed", () => {
     expect(t.verdict).toBe("positive");
   });
 
-  it("checks in 0 for a sum tracker on a zero-traffic site, but not a ratio tracker with no impressions", async () => {
+  it("checks in 0 for a sum tracker on a zero-traffic site", async () => {
     const { actor, brand } = await setup();
     await startTracker(actor, { source: "ga4:sessions", windowDays: 7, baselineValue: 50 });
     expect((await sync(actor, { source: "ga4", connectors: { ...connectors, ga4: async () => [] } }))[0].trackerCheckins).toBe(1);
@@ -260,6 +289,24 @@ describe("tracker feed", () => {
     const [r] = await sync(actor, { source: "ga4" });
     expect(r).toMatchObject({ status: "ok", trackerCheckins: 0 });
     expect((await listTrackers(brand.id, NOW))[0].checkins).toHaveLength(0);
+  });
+
+  it("does not trust old history across a gap: a short sync long after the last one resets the synced span", async () => {
+    const { actor, brand } = await setup();
+    await sync(actor, { source: "ga4" }); // 90-day backfill, synced from 2026-07-07
+    await startTracker(actor, { source: "ga4:sessions", windowDays: 30, baselineValue: 100 });
+
+    const later = new Date("2026-11-04T12:00:00Z");
+    const [short] = await sync(actor, { source: "ga4", days: 1, now: later });
+    expect([short.from, short.to]).toEqual(["2026-11-03", "2026-11-03"]);
+    expect(short.trackerCheckins).toBe(0);
+    const ga4 = (await listIntegrations(brand.id)).find((i) => i.service === "ga4")!;
+    expect(ga4.syncedFrom).toBe("2026-11-03");
+    expect((await listTrackers(brand.id, later))[0].checkins).toHaveLength(0);
+
+    const [full] = await sync(actor, { source: "ga4", days: 30, now: later });
+    expect(full.trackerCheckins).toBe(1);
+    expect((await listTrackers(brand.id, later))[0].checkins).toHaveLength(1);
   });
 });
 

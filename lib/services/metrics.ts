@@ -13,6 +13,7 @@ import {
   getMetric,
   MAX_DAYS,
   METRIC_SOURCES,
+  nextSyncedFrom,
   parseTrackerSource,
   requiredMetrics,
   siteIdentifier,
@@ -103,7 +104,7 @@ async function syncSource(c: SourceCtx): Promise<SyncSourceResult> {
     try {
       const points = await c.connectors[c.source]({ identifiers: integration.identifiers, from, to });
       const rows = await upsertPoints(tx, c.brandId, c.source, points);
-      const syncedFrom = integration.syncedFrom && integration.syncedFrom < from ? integration.syncedFrom : from;
+      const syncedFrom = nextSyncedFrom({ syncedFrom: integration.syncedFrom, lastSyncedAt: integration.lastSyncedAt, from });
       await tx.update(integrations).set({ lastSyncedAt: c.now, lastSyncError: null, syncedFrom }).where(eq(integrations.id, integration.id));
       const trackerCheckins = await feedTrackers(tx, { brandId: c.brandId, source: c.source, to, syncedFrom, now: c.now, actor: c.actor });
       const extra = trackerCheckins ? `, ${trackerCheckins} tracker check-in${trackerCheckins === 1 ? "" : "s"}` : "";
@@ -168,7 +169,10 @@ async function feedTrackers(
     const value = aggregateWindow(def, series);
     if (value === null) continue;
     try {
-      await addCheckin({ trackerId: t.id, value, observedAt, source: autoSource, note: `Automatic: ${win.from} to ${win.to}`, actor: a.actor, now: a.now });
+      // A savepoint keeps a failed check-in from aborting the surrounding sync transaction.
+      await tx.transaction((sp) =>
+        addCheckin({ trackerId: t.id, value, observedAt, source: autoSource, note: `Automatic: ${win.from} to ${win.to}`, actor: a.actor, now: a.now, tx: sp }),
+      );
       made++;
     } catch (e) {
       // A bad tracker must not fail the sync that already stored good data.
