@@ -31,6 +31,7 @@ describe("MCP tools", () => {
         "record_audit",
         "save_onboarding",
         "start_tracker",
+        "sync_metrics",
         "update_plan_item",
         "upsert_integration",
         "write_file",
@@ -125,6 +126,22 @@ describe("MCP tools", () => {
     const skill = await call("read_skill", { name: "ads-audit" }, actor);
     expect(skill.body).toMatchObject({ path: "skills/ads-audit/SKILL.md", references: ["skills/ads-audit/references/scoring.md"] });
     expect(skill.body.text).toContain("# Ads audit");
+  });
+
+  it("sync_metrics reports each source and rejects bad arguments", async () => {
+    const actor = await createTestUser();
+    await createBrand({ name: "Roof Co", actor });
+    const ok = await call("sync_metrics", { brand: "roof-co" }, actor);
+    expect(ok.isError).toBe(false);
+    expect(ok.body.results.map((r: { source: string; status: string }) => [r.source, r.status])).toEqual([
+      ["ga4", "skipped"],
+      ["gsc", "skipped"],
+    ]);
+    expect((await call("sync_metrics", { brand: "roof-co", days: 0 }, actor)).isError).toBe(true);
+    expect((await call("sync_metrics", { brand: "roof-co", source: "google_ads" }, actor)).isError).toBe(true);
+    const missing = await call("sync_metrics", { brand: "no-such-brand" }, actor);
+    expect(missing.isError).toBe(true);
+    expect(missing.body.error).toBe("not_found");
   });
 
   it("authenticates bearer tokens into an actor", async () => {

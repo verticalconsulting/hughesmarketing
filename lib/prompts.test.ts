@@ -11,6 +11,9 @@ describe("agentPrompt", () => {
     expect(agentPrompt("plan", brand)).toContain("get_plan_questions");
     expect(agentPrompt("execute", brand)).toContain("get_next_plan_item");
     expect(agentPrompt("checkin", brand)).toContain("add_checkin");
-    expect(Object.keys(PROMPT_LABELS)).toEqual(["onboard", "audit", "plan", "execute", "checkin"]);
+    expect(agentPrompt("execute", brand)).toContain("ga4:sessions");
+    expect(agentPrompt("checkin", brand)).toContain("sync_metrics");
+    expect(agentPrompt("sync", brand)).toContain('sync_metrics with brand "roofcoms-com"');
+    expect(Object.keys(PROMPT_LABELS)).toEqual(["onboard", "audit", "plan", "execute", "checkin", "sync"]);
   });
 });

@@ -57,7 +57,7 @@ const checks: Check[] = [
 
 if (process.env.MCP_TOKEN) {
   checks.push({
-    name: "MCP endpoint lists all 17 tools with a valid token",
+    name: "MCP endpoint lists all 18 tools with a valid token",
     run: async () => {
       const client = new Client({ name: "verify-deployment", version: "1.0.0" });
       try {
@@ -67,7 +67,7 @@ if (process.env.MCP_TOKEN) {
           }),
         );
         const { tools } = await client.listTools();
-        return tools.length === 17 ? null : `expected 17 tools, got ${tools.length}`;
+        return tools.length === 18 ? null : `expected 18 tools, got ${tools.length}`;
       } catch (e) {
         return `could not connect: ${(e as Error).message}`;
       } finally {

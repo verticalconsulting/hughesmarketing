@@ -129,7 +129,7 @@ Hughes team list." and no access.
    MCP_TOKEN="$MCP_TOKEN" pnpm tsx scripts/verify-deployment.ts https://<preview-url>
    ```
 
-   Expected: an extra `PASS  MCP endpoint lists all 17 tools with a valid token`.
+   Expected: an extra `PASS  MCP endpoint lists all 18 tools with a valid token`.
 
 ## 7. Import the existing AI Assets (optional; ask the owner first)
 

@@ -9,6 +9,7 @@ import { addDays } from "@/lib/domain/metrics";
 import type { Actor } from "@/lib/services/actor";
 import { listActivity } from "@/lib/services/activity";
 import { createBrand, getBrandBySlug } from "@/lib/services/brands";
+import { getBrandContext } from "@/lib/services/context";
 import { ValidationError } from "@/lib/services/errors";
 import { listIntegrations, upsertIntegration } from "@/lib/services/integrations";
 import { getMetricSeries, getTopDimension, syncBrandMetrics, syncLockKey } from "@/lib/services/metrics";
@@ -330,5 +331,18 @@ describe("reading metrics", () => {
     expect(await getTopDimension({ brandId: brand.id, metric: "query_clicks", from: "2026-09-28", to: "2026-10-04" })).toEqual([
       { label: "roof repair", clicks: 7 },
     ]);
+  });
+});
+
+describe("brand context", () => {
+  it("exposes sync status so an agent can see what is stale or broken", async () => {
+    const { actor } = await setup();
+    await sync(actor, { connectors: { ga4: failing("quota", "Google API quota exceeded while reading GA4 property 515827425. Try again later."), gsc: fakeGsc } });
+    const ctx = await getBrandContext("roof-co");
+    const ga4 = ctx.integrations.find((i) => i.service === "ga4")!;
+    const gsc = ctx.integrations.find((i) => i.service === "gsc")!;
+    expect(ga4).toMatchObject({ lastSyncedAt: null, lastSyncError: expect.stringContaining("quota") });
+    expect(gsc).toMatchObject({ lastSyncError: null });
+    expect(gsc.lastSyncedAt).toEqual(NOW);
   });
 });

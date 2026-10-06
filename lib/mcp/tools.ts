@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FUNNEL_STAGES } from "@/lib/domain/funnel";
 import { SERVICES } from "@/lib/domain/integrations";
+import { METRIC_SOURCES } from "@/lib/domain/metrics";
 import { missingOnboardingQuestions } from "@/lib/domain/questions";
 import { CATEGORIES } from "@/lib/domain/scoring";
 import { logActivity } from "@/lib/services/activity";
@@ -10,6 +11,7 @@ import { getBrandContext, getPlanQuestions } from "@/lib/services/context";
 import { NotFoundError } from "@/lib/services/errors";
 import { fileDownloadUrl, listFiles, readFile, writeFile } from "@/lib/services/files";
 import { upsertIntegration } from "@/lib/services/integrations";
+import { syncBrandMetrics } from "@/lib/services/metrics";
 import { AGENT_STATUSES, createPlanVersion, getNextPlanItem, updatePlanItem } from "@/lib/services/plans";
 import { addCheckin, startTracker } from "@/lib/services/trackers";
 import { defineTool, type AnyTool } from "./run";
@@ -25,7 +27,11 @@ const trackerShape = {
   direction: z.enum(["up", "down"]).describe("'up' if higher is better, 'down' if lower is better (e.g. CPA)"),
   baseline_value: z.number(),
   baseline_at: isoDate,
-  source: z.string().describe("Where the number comes from, e.g. GA4, GSC, Google Ads"),
+  source: z
+    .string()
+    .describe(
+      "Where the number comes from, e.g. GA4, GSC, Google Ads. Use exactly ga4:sessions, ga4:users, ga4:key_events, gsc:clicks, gsc:impressions, gsc:ctr or gsc:position and the app checks in automatically after each sync_metrics (set baseline_value to the same measure summed over the window_days before baseline_at).",
+    ),
   window_days: z.number().int().min(1).describe("Days to wait before judging impact"),
   threshold_pct: z.number().positive().optional().describe("Minimum % change that counts as impact (default 5)"),
 };
@@ -290,6 +296,17 @@ export const tools: AnyTool[] = [
         actor,
       }),
     }),
+  }),
+  defineTool({
+    name: "sync_metrics",
+    description:
+      "Pull the latest Google Analytics 4 and Search Console metrics for a brand into the app (daily data for the Analytics tab). Trackers whose source is ga4:<metric> or gsc:<metric> are checked in automatically. Returns one result per source: ok, skipped (not connected or no identifier), or error with the exact reason.",
+    input: {
+      brand: brandArg,
+      source: z.enum(METRIC_SOURCES).optional().describe("Only this source. Omit for both ga4 and gsc."),
+      days: z.number().int().min(1).max(400).optional().describe("How many days back to pull. Omit for the default (90 on the first sync, otherwise a rolling 7)."),
+    },
+    handler: async ({ brand, source, days }, { actor }) => ({ results: await syncBrandMetrics({ brandSlug: brand, source, days, actor }) }),
   }),
   defineTool({
     name: "log_activity",
