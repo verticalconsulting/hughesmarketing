@@ -101,6 +101,24 @@ describe("gscConnector", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("caps dimension result sets at 4 pages (100,000 rows) without error", async () => {
+    const fullPage = Array.from({ length: GSC_ROW_LIMIT }, (_, i) => ({ keys: [`2026-10-01`, `query${i}`], clicks: 1, impressions: 1, ctr: 1, position: 1 }));
+    const queryStartRows: number[] = [];
+    const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      const dims = (body.dimensions as string[]).join();
+      if (dims === "date,query") {
+        queryStartRows.push(body.startRow as number);
+        return new Response(JSON.stringify({ rows: fullPage }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const points = await gscConnector({ identifiers: { site_url: "sc-domain:example.com" }, from: "2026-10-01", to: "2026-10-04" });
+    expect(queryStartRows).toEqual([0, GSC_ROW_LIMIT, GSC_ROW_LIMIT * 2, GSC_ROW_LIMIT * 3]);
+    expect(points).toBeDefined();
+  });
+
   it("surfaces a 403 as permission_denied naming the site", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 403 })));
     const e = await gscConnector({ identifiers: { site_url: "sc-domain:example.com" }, from: "2026-10-01", to: "2026-10-04" }).catch((x) => x);

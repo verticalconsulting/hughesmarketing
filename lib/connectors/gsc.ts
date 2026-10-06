@@ -5,7 +5,7 @@ import { postJson } from "./http";
 import type { Connector, MetricPointInput } from "./types";
 
 export const GSC_ROW_LIMIT = 25_000;
-const MAX_PAGES = 4; // 100,000 rows per dimension set is far beyond what 400 days of top queries needs
+const MAX_PAGES = 4; // Results are truncated after 4 pages (100,000 rows per dimension set). This is acceptable because Search Console returns rows ordered by clicks descending, so truncation drops the long tail and barely changes the top-100 totals. Daily totals (date dimension only) cannot reach this cap.
 const TOP_N = 100;
 
 type GscRow = { keys: string[]; clicks: number; impressions: number; ctr: number; position: number };
