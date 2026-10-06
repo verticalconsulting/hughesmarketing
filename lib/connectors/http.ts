@@ -41,7 +41,14 @@ export async function postJson<T>(o: PostJsonOptions): Promise<T> {
       }
       throw new ConnectorError("unavailable", `Could not reach Google while reading ${o.what}. Try again later.`);
     }
-    if (res.ok) return (await res.json()) as T;
+    if (res.ok) {
+      try {
+        return (await res.json()) as T;
+      } catch {
+        // Never forward parse errors that can contain the response body
+        throw new ConnectorError("unavailable", `Google returned an unreadable response while reading ${o.what}. Try again later.`);
+      }
+    }
     if ((res.status === 429 || res.status >= 500) && attempt === 0) {
       await sleep(1000);
       continue;

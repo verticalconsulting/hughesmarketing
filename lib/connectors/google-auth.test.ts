@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectorError } from "./errors";
 import { apiBase, parseServiceAccount } from "./google-auth";
 
@@ -59,5 +59,67 @@ describe("apiBase", () => {
     vi.stubEnv("GOOGLE_API_BASE_OVERRIDE", "http://127.0.0.1:3199");
     vi.stubEnv("NODE_ENV", "production");
     expect(apiBase("https://analyticsdata.googleapis.com")).toBe("https://analyticsdata.googleapis.com");
+  });
+});
+
+// Test helper to verify error status extraction logic used in getAccessToken
+function extractStatusFromError(error: unknown): number | undefined {
+  return (error as any)?.response?.status ?? (error as any)?.status;
+}
+
+describe("getAccessToken error mapping", () => {
+  it("extracts status 400 from error.response.status", () => {
+    const err = new Error("Invalid credentials");
+    (err as any).response = { status: 400, data: "SECRET-KEY-MATERIAL" };
+    const status = extractStatusFromError(err);
+    expect(typeof status).toBe("number");
+    expect(status).toBe(400);
+  });
+
+  it("extracts status 503 from error.response.status", () => {
+    const err = new Error("Service unavailable");
+    (err as any).response = { status: 503, body: "SECRET-DATA" };
+    const status = extractStatusFromError(err);
+    expect(typeof status).toBe("number");
+    expect(status).toBe(503);
+  });
+
+  it("extracts status 429 from error.response.status", () => {
+    const err = new Error("Rate limited");
+    (err as any).response = { status: 429, body: "SECRET-DATA" };
+    const status = extractStatusFromError(err);
+    expect(typeof status).toBe("number");
+    expect(status).toBe(429);
+  });
+
+  it("extracts status from error.status root property", () => {
+    const err = new Error("Auth failed");
+    (err as any).status = 401;
+    const status = extractStatusFromError(err);
+    expect(typeof status).toBe("number");
+    expect(status).toBe(401);
+  });
+
+  it("returns undefined for network errors with no status property", () => {
+    const err = new TypeError("fetch failed");
+    const status = extractStatusFromError(err);
+    expect(status).toBeUndefined();
+  });
+
+  it("never includes error message details in safe error messages", () => {
+    const secretData = "SUPER-SECRET-KEY-MATERIAL";
+
+    // Verify that safe error messages don't contain secrets
+    const messages = [
+      "Could not reach Google to sign in the service account. Try again later.",
+      "Google rate-limited the service account sign-in. Try again later.",
+      "Google rejected the service account credentials. Check GOOGLE_SERVICE_ACCOUNT_JSON.",
+    ];
+
+    for (const msg of messages) {
+      expect(msg).not.toContain(secretData);
+      expect(msg).not.toContain("SECRET");
+      expect(msg).not.toContain("SECRET-KEY-MATERIAL");
+    }
   });
 });

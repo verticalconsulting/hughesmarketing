@@ -65,4 +65,12 @@ describe("postJson", () => {
     await failure(postJson({ ...base, fetchImpl: async () => (calls++, res(403)) }));
     expect(calls).toBe(1);
   });
+
+  it("maps 200 with non-JSON body to unavailable without leaking the body", async () => {
+    const e = await failure(postJson({ ...base, fetchImpl: async () => new Response("<html>SECRET-BODY</html>", { status: 200 }) }));
+    expect(e.code).toBe("unavailable");
+    expect(e.message).toContain("unreadable response");
+    expect(e.message).not.toContain("SECRET-BODY");
+    expect(String(e.stack)).not.toContain("SECRET-BODY");
+  });
 });

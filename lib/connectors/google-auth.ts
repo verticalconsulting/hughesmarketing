@@ -49,8 +49,19 @@ export async function getAccessToken(source: keyof typeof SCOPES): Promise<strin
     const { token } = await client.getAccessToken();
     if (!token) throw new Error("empty token");
     return token;
-  } catch {
-    // The library's error can include request details; do not forward it.
+  } catch (e) {
+    // The library's error can include request details; extract only the status code if present
+    const status = (e as { response?: { status?: unknown }; status?: unknown })?.response?.status ?? (e as { status?: unknown })?.status;
+    const statusNum = typeof status === "number" ? status : undefined;
+
+    if (!statusNum || statusNum >= 500) {
+      // Network failure or server error
+      throw new ConnectorError("unavailable", "Could not reach Google to sign in the service account. Try again later.");
+    }
+    if (statusNum === 429) {
+      throw new ConnectorError("quota", "Google rate-limited the service account sign-in. Try again later.");
+    }
+    // All other statuses (400, 401, 403, etc.) indicate permission/credential issues
     throw new ConnectorError("permission_denied", "Google rejected the service account credentials. Check GOOGLE_SERVICE_ACCOUNT_JSON.");
   }
 }
