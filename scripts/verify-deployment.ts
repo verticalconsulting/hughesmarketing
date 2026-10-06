@@ -53,6 +53,17 @@ const checks: Check[] = [
       return res.status === 401 ? null : `expected 401, got ${res.status}`;
     },
   },
+  {
+    name: "no public response leaks service-account key material",
+    run: async () => {
+      for (const path of ["/login", "/api/mcp"]) {
+        const res = await fetch(`${base}${path}`, { redirect: "manual" });
+        const text = await res.text();
+        if (/private_key|BEGIN (RSA )?PRIVATE KEY/.test(text)) return `${path} response contains key material`;
+      }
+      return null;
+    },
+  },
 ];
 
 if (process.env.MCP_TOKEN) {

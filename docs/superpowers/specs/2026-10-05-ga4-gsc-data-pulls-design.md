@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-05
 **Owner:** Corey Hughes, Five Hughes LLC
-**Status:** Design approved in conversation; pending written-spec review
+**Status:** Approved; amended during planning (see §13)
 **Builds on:** `2026-10-02-marketing-workspace-design.md` (v1)
 
 ## 1. Purpose
@@ -73,10 +73,13 @@ Analytics tab ◄── lib/services/metrics.ts  getMetricSeries(brand, source, 
 New migration `0002_metric_points.sql` (drizzle). RLS enabled with deny-all for anon, like every other table.
 
 - **metric_points**: `id` (uuid), `brand_id` → brands (cascade), `source` (`ga4` | `gsc`), `metric` (text),
-  `date` (date), `dimension` (text, not null, default `''`; e.g. `query:<text>` or `page:<path>`), `value` (real),
+  `date` (date), `dimension` (text, not null, default `''`; e.g. `query:<text>` or `page:<full URL>`; the UI shortens it for display), `value` (double precision),
   `created_at`, `updated_at`. **Unique** on (`brand_id`, `source`, `metric`, `date`, `dimension`). Index on
   (`brand_id`, `source`, `metric`, `date`).
-- **integrations** gains `last_synced_at` (timestamptz, null) and `last_sync_error` (text, null).
+- **integrations** gains `last_synced_at` (timestamptz, null), `last_sync_error` (text, null), and `synced_from`
+  (date, null): the start of the contiguous span of days synced end to end, ending at the last successful sync.
+  If a sync's range does not reach back to the day the previous sync ran, the span restarts at that sync's `from`
+  (pure helper `nextSyncedFrom` in `lib/domain/metrics.ts`).
 
 ### Metric catalog (v1 of this slice)
 
@@ -90,7 +93,7 @@ New migration `0002_metric_points.sql` (drizzle). RLS enabled with deny-all for 
 | gsc | `ctr` | Click-through rate per day, 0–1 | up |
 | gsc | `position` | Average position per day | down |
 | gsc | `query_clicks` | Clicks per query per day, top 100 queries (dimension `query:<text>`) | up |
-| gsc | `page_clicks` | Clicks per page per day, top 100 pages (dimension `page:<path>`) | up |
+| gsc | `page_clicks` | Clicks per page per day, top 100 pages (dimension `page:<full URL>`) | up |
 
 Only dimension `''` rows feed charts and trackers by default; query and page rows feed top-queries and top-pages
 tables.
@@ -100,7 +103,8 @@ tables.
 - **Inputs:** brand slug, optional `source` (default: all connected of `ga4`, `gsc`), optional `days`.
 - **Range:** first sync for a source (no `metric_points`) backfills **90 days**; later syncs re-pull a rolling
   **7 days** to absorb GSC's late-arriving data. `days` overrides, max 400. The range ends at yesterday (GSC data
-  for today is incomplete).
+  for today is incomplete). If the last successful sync was more than 7 days ago the rolling window is lengthened
+  to cover the gap (capped at 400), so no day is skipped. The first sync is the one where `synced_from` is null.
 - **Eligibility:** an integration is syncable when `status = connected` and its required identifier exists:
   `property_id` for `ga4`, `site_url` for `gsc`. Otherwise the source is skipped with a `skipped` reason, not an error.
 - **Upsert:** `INSERT ... ON CONFLICT (brand_id, source, metric, date, dimension) DO UPDATE SET value`.
@@ -125,7 +129,9 @@ where `<metric>` is in the catalog:
    users, labelled "user-days" in the UI, because unique users across a window cannot be rebuilt from daily rows).
    `ctr` is recomputed as `Σclicks / Σimpressions`, and `position` is the impressions-weighted mean. The
    aggregation rule for each metric lives in the catalog.
-2. Call `addCheckin` with `source = "<source>:<metric> (auto)"` and an `observed_at` of the window end.
+2. Call `addCheckin` with `source = "<source>:<metric> (auto)"`. A tracker is only checked in when `synced_from`
+   is on or before the window start, so a 30-day tracker never receives a check-in built from 7 days of history.
+   `observed_at` is the last millisecond of the window end date.
 3. At most one auto check-in per tracker per window end date (skip if one exists), so repeat syncs do not pile up.
 
 The v1 verdict logic is unchanged and still decides `pending` / `positive` / `neutral` / `negative`.
@@ -138,7 +144,7 @@ The v1 verdict logic is unchanged and still decides `pending` / `positive` / `ne
 - **Scopes:** `analytics.readonly` and `webmasters.readonly`.
 - **Per-brand setup (HUMAN):** add the service-account email as Viewer on the GA4 property (Admin → Property
   Access Management) and as a user on the Search Console site (Settings → Users and permissions). Then set
-  `property_id` (digits only) and `site_url` (e.g. `sc-domain:example.com` or `https://example.com/`) on the
+  `property_id` (digits only) and `site_url` (e.g. `sc-domain:example.com` or `https://example.com/`; also accepted: the legacy `site` key the v1 importer writes) on the
   brand's integration cards.
 - **Never exposed:** the key is read server-side only. It is never returned by a tool, never included in an
   activity row or error message, and `.env*` files stay git-ignored. `scripts/verify-deployment.ts` gains a check
@@ -170,7 +176,7 @@ writes metrics). `get_brand_context` also returns each integration's `last_synce
 
 | Condition | Behavior |
 |---|---|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` missing or invalid | Source result `error`, message "Google service account is not configured"; no stack trace. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` missing or invalid | Code `not_configured`. Source result `error`, message "Google service account is not configured"; if the value is not valid JSON the message says the key must be pasted on one line. No stack trace. |
 | 403 from Google | `permission_denied`: "The service account `<email>` does not have access to GA4 property `<id>`." (email is the public `client_email`, not a secret) |
 | 404 / invalid property or site | `bad_identifier`, naming the identifier. |
 | 429 / quota | `quota`, with a "try again later" message. One retry with backoff inside the connector. |
@@ -205,8 +211,18 @@ Errors never include request bodies, tokens, or the key.
 `google-auth-library` (service-account JWT). No other new runtime dependencies; charts use the existing
 `recharts`, HTTP uses built-in `fetch`.
 
-## 12. Open items for the implementation plan
+## 12. Resolved during planning
 
-- Confirm the exact GA4 Data API `runReport` dimension and metric names for key events in the current API version.
-- Confirm GSC `searchAnalytics.query` row limits and pagination for the 100-row top lists.
-- Decide the e2e fake-Google-server mechanism (a Next route under a test-only flag vs. a standalone node server).
+- GA4 `runReport` uses metric names `sessions`, `activeUsers`, `keyEvents` and the `date` dimension (YYYYMMDD); one request per sync is enough (at most 400 rows).
+- Search Console returns at most 25,000 rows per request; the connector pages with `startRow`, capped at 4 pages. "Top 100" is computed locally: the 100 queries or pages with the most total clicks over the fetched range, with all of their per-day rows.
+- The e2e uses a standalone Node fake Google server on 127.0.0.1:3199, enabled in the dev server by the test-only `GOOGLE_API_BASE_OVERRIDE` variable (ignored when `NODE_ENV=production`).
+
+## 13. Amendments made while writing the implementation plan
+
+`value` is double precision; page dimensions keep the full URL; `integrations.synced_from` and the gap-aware rolling window were added so tracker coverage and "no days skipped" are exact even for zero-traffic sites; `not_configured` is a distinct error code.
+
+Amendments made during execution:
+
+- `integrations.synced_from` means the start of the contiguous span of days synced end to end, ending at the last successful sync; if a sync's range does not reach back to the day the previous sync ran, the span restarts at that sync's `from` (pure helper `nextSyncedFrom` in `lib/domain/metrics.ts`). It is not merely the earliest day ever synced.
+- `addCheckin` (`lib/services/trackers.ts`) gained an optional `tx`. The tracker feed runs each auto check-in in a savepoint inside the sync transaction, so one failing tracker cannot abort the sync and check-ins are atomic with the sync. A sync therefore holds one pooled connection for its whole duration.
+- The Search Console top-queries and top-pages fetch is capped at 4 pages (100,000 rows per dimension set). This can truncate the long tail only: rows arrive ordered by clicks descending, and the daily totals come from a separate, un-truncated request.
