@@ -3,7 +3,7 @@ import { users } from "@/lib/data/schema";
 import type { Actor } from "@/lib/services/actor";
 
 export async function resetDb(): Promise<void> {
-  await sql`TRUNCATE activities, tracker_checkins, trackers, plan_item_files, plan_items, plans,
+  await sql`TRUNCATE metric_points, activities, tracker_checkins, trackers, plan_item_files, plan_items, plans,
     audit_scores, audits, file_versions, files, integrations, brands, api_tokens, users,
     companies, scoring_config RESTART IDENTITY CASCADE`;
   await sql`INSERT INTO companies (name) VALUES ('Five Hughes LLC')`;

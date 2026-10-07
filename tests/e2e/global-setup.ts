@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { loadEnv } from "vite";
+import { startFakeGoogle } from "./fake-google";
 
 export default async function globalSetup() {
   Object.assign(process.env, loadEnv("test", process.cwd(), ""));
@@ -11,4 +12,8 @@ export default async function globalSetup() {
   const { token } = await createApiToken(actor.userId, "e2e");
   writeFileSync("tests/e2e/.state.json", JSON.stringify({ token }));
   await sql.end();
+  const fakeGoogle = await startFakeGoogle();
+  return async () => {
+    await new Promise<void>((resolve) => fakeGoogle.close(() => resolve()));
+  };
 }

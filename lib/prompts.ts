@@ -1,4 +1,4 @@
-export type PromptKind = "onboard" | "audit" | "plan" | "execute" | "checkin";
+export type PromptKind = "onboard" | "audit" | "plan" | "execute" | "checkin" | "sync";
 
 export const PROMPT_LABELS: Record<PromptKind, string> = {
   onboard: "Onboard the brand",
@@ -6,6 +6,7 @@ export const PROMPT_LABELS: Record<PromptKind, string> = {
   plan: "Build the plan",
   execute: "Work the next plan item",
   checkin: "Check in on trackers",
+  sync: "Sync analytics",
 };
 
 export function agentPrompt(kind: PromptKind, b: { name: string; slug: string; domain: string | null }): string {
@@ -51,14 +52,24 @@ Work the plan:
 2. Read the matching skill with read_skill and follow it. Use the browser when you need to.
 3. Save deliverables with write_file under deliverables/ or workflow-results/.
 4. Call update_plan_item with link_files, a short note, and status "done" plus a tracker: the KPI this item should move, direction, the real current value as baseline_value with baseline_at, the data source, and window_days for when impact should show.
+   If Google Analytics or Search Console is connected for this brand, set the tracker source to exactly one of ga4:sessions, ga4:users, ga4:key_events, gsc:clicks, gsc:impressions, gsc:ctr, gsc:position so the app checks in automatically, and make baseline_value that same measure summed (or, for gsc:ctr and gsc:position, computed) over the window_days before baseline_at.
 If the work needs something published, spent, or changed live, stop and tell me — I approve it in the app.`;
     case "checkin":
       return `${intro}
 
 Check in on impact:
-1. For every tracker in the context whose verdict is pending, get the current KPI value from its source (GA4, Search Console, Google Ads, or the site).
-2. Call add_checkin with the value, observed_at, and source.
-3. Report each verdict (positive, neutral, negative, or still measuring).
+1. Call sync_metrics for this brand. Trackers whose source is ga4:<metric> or gsc:<metric> are checked in automatically.
+2. For every other tracker whose verdict is pending, get the current KPI value from its source (Google Ads, the site, or another tool).
+3. Call add_checkin with the value, observed_at, and source.
+4. Report each verdict (positive, neutral, negative, or still measuring).
 If the latest audit is more than 30 days old, recommend rerunning the audit.`;
+    case "sync":
+      return `${intro}
+
+Pull the latest analytics for this brand:
+1. Call sync_metrics with brand "${b.slug}" and no other arguments.
+2. For any source that comes back "error" or "skipped", tell me the exact message so I can fix the connection. Do not retry more than once.
+3. Call get_brand_context again and report every tracker whose source starts with ga4: or gsc: with its latest value and verdict.
+Trackers with any other source still need add_checkin from you.`;
   }
 }

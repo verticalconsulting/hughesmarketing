@@ -16,7 +16,13 @@ export type BrandContext = {
   activePlan: PlanView | null;
   openItems: PlanItemView[];
   trackers: TrackerSummary[];
-  integrations: { service: string; status: string; identifiers: Record<string, string> }[];
+  integrations: {
+    service: string;
+    status: string;
+    identifiers: Record<string, string>;
+    lastSyncedAt: Date | null;
+    lastSyncError: string | null;
+  }[];
 };
 
 export async function getBrandContext(slug: string): Promise<BrandContext> {
@@ -35,7 +41,13 @@ export async function getBrandContext(slug: string): Promise<BrandContext> {
     activePlan,
     openItems: activePlan?.items.filter((i) => OPEN.has(i.status)) ?? [],
     trackers,
-    integrations: integrations.map((i) => ({ service: i.service, status: i.status, identifiers: i.identifiers })),
+    integrations: integrations.map((i) => ({
+      service: i.service,
+      status: i.status,
+      identifiers: i.identifiers,
+      lastSyncedAt: i.lastSyncedAt,
+      lastSyncError: i.lastSyncError,
+    })),
   };
 }
 

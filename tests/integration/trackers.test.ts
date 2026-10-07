@@ -1,5 +1,9 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createTestUser } from "../helpers/db";
+import { db } from "@/lib/data/db";
+import { trackerCheckins, trackers } from "@/lib/data/schema";
+import { listActivity } from "@/lib/services/activity";
 import { createBrand } from "@/lib/services/brands";
 import { createPlanVersion, getActivePlan, updatePlanItem } from "@/lib/services/plans";
 import { addCheckin, listTrackers } from "@/lib/services/trackers";
@@ -50,5 +54,40 @@ describe("trackers", () => {
     await expect(
       addCheckin({ trackerId: "00000000-0000-0000-0000-000000000000", value: 1, observedAt: new Date(), source: "GA4", actor }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("addCheckin inside a transaction", () => {
+  it("rolls back the check-in, the activity row and the verdict with the surrounding transaction", async () => {
+    const { actor, brand, trackerId } = await trackedItem();
+    const before = (await listActivity({ brandId: brand.id })).length;
+    await expect(
+      db.transaction(async (tx) => {
+        await addCheckin({ trackerId, value: 15, observedAt: new Date("2026-10-02"), source: "GA4", actor, now: new Date("2026-10-02"), tx });
+        throw new Error("rollback");
+      }),
+    ).rejects.toThrow("rollback");
+
+    expect(await db.select().from(trackerCheckins).where(eq(trackerCheckins.trackerId, trackerId))).toHaveLength(0);
+    expect(await listActivity({ brandId: brand.id })).toHaveLength(before);
+    const [t] = await db.select().from(trackers).where(eq(trackers.id, trackerId));
+    expect(t).toMatchObject({ verdict: "pending", changePct: null, verdictAt: null });
+  });
+
+  it("persists the check-in, the activity row and the verdict when the transaction commits", async () => {
+    const { actor, brand, trackerId } = await trackedItem();
+    const before = (await listActivity({ brandId: brand.id })).length;
+    const r = await db.transaction((tx) =>
+      addCheckin({ trackerId, value: 15, observedAt: new Date("2026-10-02"), source: "GA4", actor, now: new Date("2026-10-02"), tx }),
+    );
+    expect(r).toMatchObject({ verdict: "positive", changePct: 50, latest: 15 });
+
+    expect(await db.select().from(trackerCheckins).where(eq(trackerCheckins.trackerId, trackerId))).toHaveLength(1);
+    const activity = await listActivity({ brandId: brand.id });
+    expect(activity).toHaveLength(before + 1);
+    expect(activity.map((a) => a.summary)).toContain("Check-in Leads: 15 (positive)");
+    const [t] = await db.select().from(trackers).where(eq(trackers.id, trackerId));
+    expect(t).toMatchObject({ verdict: "positive", changePct: 50 });
+    expect(t.verdictAt).not.toBeNull();
   });
 });

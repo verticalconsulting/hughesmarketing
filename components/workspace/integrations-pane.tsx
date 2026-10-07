@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { listIntegrationsAction, saveIntegrationAction } from "@/app/actions/integrations";
+import { syncMetricsAction } from "@/app/actions/metrics";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SERVICE_LABELS, SERVICES, type Service } from "@/lib/domain/integrations";
@@ -22,7 +23,9 @@ export function IntegrationsPane({ brandSlug }: { brandSlug: string }) {
   return (
     <div className="space-y-2 p-3">
       <p className="text-xs text-muted-foreground">
-        The agent pulls data with its own connectors; record each account here so it knows which property, site, or customer ID to use.
+        Record each account here so the agent knows which property, site, or customer ID to use. For Google Analytics 4 (property_id) and
+        Search Console (site_url), add the service account as a Viewer, mark the integration connected, then Sync now to pull metrics
+        into the Analytics tab.
       </p>
       {SERVICES.filter((s) => s !== "other").map((service) => {
         const row = rows.find((r) => r.service === service);
@@ -46,6 +49,35 @@ export function IntegrationsPane({ brandSlug }: { brandSlug: string }) {
                   </div>
                 ))}
               </dl>
+            )}
+            {(service === "ga4" || service === "gsc") && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2"
+                  aria-label={`Sync ${SERVICE_LABELS[service]} now`}
+                  disabled={pending || status !== "connected"}
+                  onClick={() =>
+                    start(async () => {
+                      const r = await syncMetricsAction({ brandSlug, source: service as "ga4" | "gsc" });
+                      if (!r.ok) return void toast.error(r.error);
+                      const s = r.data[0];
+                      if (s.status === "ok") toast.success(`${SERVICE_LABELS[service]} synced (${s.rows} rows)`);
+                      else toast.error(s.message ?? "Sync failed");
+                      await refresh();
+                    })
+                  }
+                >
+                  Sync now
+                </Button>
+                <span className="text-muted-foreground">{row?.lastSyncedAt ? `Synced ${new Date(row.lastSyncedAt).toLocaleString()}` : "Never synced"}</span>
+              </div>
+            )}
+            {row?.lastSyncError && (
+              <p role="alert" className="mt-1 text-xs text-band-red">
+                {row.lastSyncError}
+              </p>
             )}
             {editing === service && (
               <form
@@ -74,7 +106,7 @@ export function IntegrationsPane({ brandSlug }: { brandSlug: string }) {
                 <Textarea
                   name="identifiers"
                   aria-label="Identifiers"
-                  placeholder={"property_id=515827425\nsite=sc-domain:example.com"}
+                  placeholder={"property_id=515827425\nsite_url=sc-domain:example.com"}
                   defaultValue={Object.entries(row?.identifiers ?? {}).map(([k, v]) => `${k}=${v}`).join("\n")}
                   className="font-mono text-xs"
                 />
