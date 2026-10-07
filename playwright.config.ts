@@ -21,6 +21,7 @@ export default defineConfig({
       ...env,
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-unused",
+      GOOGLE_API_BASE_OVERRIDE: "http://127.0.0.1:3199",
     },
   },
 });

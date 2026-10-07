@@ -71,10 +71,13 @@ export async function addCheckin(input: {
   note?: string | null;
   actor: Actor;
   now?: Date;
+  /** Run every statement on this transaction (default: the global db). */
+  tx?: DbOrTx;
 }): Promise<{ verdict: Verdict; changePct: number | null; changeAbs: number | null; latest: number | null }> {
   if (!Number.isFinite(input.value)) throw new ValidationError("Check-in value must be a number", "value");
   if (Number.isNaN(input.observedAt.getTime())) throw new ValidationError("observedAt must be a valid date", "observedAt");
-  const [row] = await db
+  const q = input.tx ?? db;
+  const [row] = await q
     .select({ tracker: trackers, brandId: plans.brandId })
     .from(trackers)
     .innerJoin(planItems, eq(planItems.id, trackers.planItemId))
@@ -83,16 +86,16 @@ export async function addCheckin(input: {
   if (!row) throw new NotFoundError(`Tracker ${input.trackerId} not found`);
   const t = row.tracker;
 
-  await db.insert(trackerCheckins).values({
+  await q.insert(trackerCheckins).values({
     trackerId: t.id,
     value: input.value,
     observedAt: input.observedAt,
     source: input.source,
     note: input.note ?? null,
   });
-  const checkins = await db.select().from(trackerCheckins).where(eq(trackerCheckins.trackerId, t.id));
+  const checkins = await q.select().from(trackerCheckins).where(eq(trackerCheckins.trackerId, t.id));
   const r = computeVerdict(t, checkins, input.now ?? new Date());
-  await db
+  await q
     .update(trackers)
     .set({
       verdict: r.verdict,
@@ -107,7 +110,7 @@ export async function addCheckin(input: {
     summary: `Check-in ${t.kpi}: ${input.value} (${r.verdict})`,
     refType: "tracker",
     refId: t.id,
-  });
+  }, q);
   return { verdict: r.verdict, changePct: r.changePct, changeAbs: r.changeAbs, latest: r.latest };
 }
 

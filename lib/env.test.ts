@@ -17,4 +17,9 @@ describe("parseEnv", () => {
   it("rejects a missing DATABASE_URL", () => {
     expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
   });
+
+  it("treats GOOGLE_SERVICE_ACCOUNT_JSON as optional so existing deployments keep working", () => {
+    expect(parseEnv({ DATABASE_URL: "postgresql://x" }).GOOGLE_SERVICE_ACCOUNT_JSON).toBeUndefined();
+    expect(parseEnv({ DATABASE_URL: "postgresql://x", GOOGLE_SERVICE_ACCOUNT_JSON: "{}" }).GOOGLE_SERVICE_ACCOUNT_JSON).toBe("{}");
+  });
 });
