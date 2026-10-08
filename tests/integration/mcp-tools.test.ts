@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTestUser } from "../helpers/db";
+import { METRICS } from "@/lib/domain/metrics";
 import { actorFromAuth, authenticateBearer } from "@/lib/mcp/auth";
 import { runTool } from "@/lib/mcp/run";
 import { findTool, tools } from "@/lib/mcp/tools";
@@ -31,6 +32,7 @@ describe("MCP tools", () => {
         "record_audit",
         "save_onboarding",
         "start_tracker",
+        "sync_metrics",
         "update_plan_item",
         "upsert_integration",
         "write_file",
@@ -125,6 +127,35 @@ describe("MCP tools", () => {
     const skill = await call("read_skill", { name: "ads-audit" }, actor);
     expect(skill.body).toMatchObject({ path: "skills/ads-audit/SKILL.md", references: ["skills/ads-audit/references/scoring.md"] });
     expect(skill.body.text).toContain("# Ads audit");
+  });
+
+  it("sync_metrics reports each source and rejects bad arguments", async () => {
+    const actor = await createTestUser();
+    await createBrand({ name: "Roof Co", actor });
+    const ok = await call("sync_metrics", { brand: "roof-co" }, actor);
+    expect(ok.isError).toBe(false);
+    expect(ok.body.results.map((r: { source: string; status: string }) => [r.source, r.status])).toEqual([
+      ["ga4", "skipped"],
+      ["gsc", "skipped"],
+    ]);
+    expect((await call("sync_metrics", { brand: "roof-co", days: 0 }, actor)).isError).toBe(true);
+    expect((await call("sync_metrics", { brand: "roof-co", source: "google_ads" }, actor)).isError).toBe(true);
+    const missing = await call("sync_metrics", { brand: "no-such-brand" }, actor);
+    expect(missing.isError).toBe(true);
+    expect(missing.body.error).toBe("not_found");
+  });
+
+  it("documents every auto-check-in tracker source from the metrics catalog on start_tracker", () => {
+    const canonical = METRICS.filter((m) => !m.dimensional).map((m) => `${m.source}:${m.id}`);
+    expect(canonical).toHaveLength(7);
+    const description = findTool("start_tracker").input.source.description ?? "";
+    for (const entry of canonical) expect(description, entry).toContain(entry);
+  });
+
+  it("tells agents how to compute ratio and weighted baselines for gsc:ctr and gsc:position", () => {
+    const description = findTool("start_tracker").input.source.description ?? "";
+    expect(description).toContain("impressions-weighted");
+    expect(description).toContain("total clicks");
   });
 
   it("authenticates bearer tokens into an actor", async () => {

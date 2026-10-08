@@ -59,11 +59,22 @@ const checks: Check[] = [
       return res.status === 401 ? null : `expected 401, got ${res.status}`;
     },
   },
+  {
+    name: "no public response leaks service-account key material",
+    run: async () => {
+      for (const path of ["/login", "/api/mcp"]) {
+        const res = await fetch(`${base}${path}`, { redirect: "manual" });
+        const text = await res.text();
+        if (/private_key|BEGIN (RSA )?PRIVATE KEY/.test(text)) return `${path} response contains key material`;
+      }
+      return null;
+    },
+  },
 ];
 
 if (process.env.MCP_TOKEN) {
   checks.push({
-    name: "MCP endpoint lists all 17 tools with a valid token",
+    name: "MCP endpoint lists all 18 tools with a valid token",
     run: async () => {
       const client = new Client({ name: "verify-deployment", version: "1.0.0" });
       try {
@@ -73,7 +84,7 @@ if (process.env.MCP_TOKEN) {
           }),
         );
         const { tools } = await client.listTools();
-        return tools.length === 17 ? null : `expected 17 tools, got ${tools.length}`;
+        return tools.length === 18 ? null : `expected 18 tools, got ${tools.length}`;
       } catch (e) {
         return `could not connect: ${(e as Error).message}`;
       } finally {

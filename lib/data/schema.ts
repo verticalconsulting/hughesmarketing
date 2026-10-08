@@ -1,5 +1,8 @@
 import {
   boolean,
+  date,
+  doublePrecision,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -239,9 +242,32 @@ export const integrations = pgTable(
     identifiers: jsonb("identifiers").$type<Record<string, string>>().notNull().default({}),
     notes: text("notes"),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
+    syncedFrom: date("synced_from", { mode: "string" }),
     ...timestamps,
   },
   (t) => [unique("integrations_brand_service").on(t.brandId, t.service)],
+);
+
+export const metricPoints = pgTable(
+  "metric_points",
+  {
+    id: id(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    metric: text("metric").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    dimension: text("dimension").notNull().default(""),
+    value: doublePrecision("value").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    unique("metric_points_key").on(t.brandId, t.source, t.metric, t.date, t.dimension),
+    index("metric_points_lookup").on(t.brandId, t.source, t.metric, t.date),
+  ],
 );
 
 export const activities = pgTable("activities", {
