@@ -1,6 +1,7 @@
 // Smoke-checks a deployed instance. Exits non-zero if any check fails.
 // Usage: pnpm tsx scripts/verify-deployment.ts https://your-app.vercel.app
 // Optional: MCP_TOKEN=hm_... also checks the authenticated MCP tool list.
+// Optional: VERCEL_AUTOMATION_BYPASS_SECRET=... lets the script through Vercel Deployment Protection.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
@@ -10,13 +11,18 @@ if (!base) {
   process.exit(2);
 }
 
+// Vercel's "Protection Bypass for Automation": sent as a header on every request when the secret is set.
+const bypass: Record<string, string> = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+  ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+  : {};
+
 type Check = { name: string; run: () => Promise<string | null> }; // null = pass, string = why it failed
 
 const checks: Check[] = [
   {
     name: "login page is public and offers Google sign-in",
     run: async () => {
-      const res = await fetch(`${base}/login`, { redirect: "manual" });
+      const res = await fetch(`${base}/login`, { redirect: "manual", headers: bypass });
       if (res.status === 401) return "got 401 - Vercel Deployment Protection is on; use a bypass token or disable it for previews";
       if (res.status !== 200) return `expected 200, got ${res.status}`;
       return (await res.text()).includes("Continue with Google") ? null : "page loaded but has no Google sign-in button";
@@ -25,7 +31,7 @@ const checks: Check[] = [
   {
     name: "workspace requires sign-in (auth bypass is OFF)",
     run: async () => {
-      const res = await fetch(`${base}/b/anything/plan`, { redirect: "manual" });
+      const res = await fetch(`${base}/b/anything/plan`, { redirect: "manual", headers: bypass });
       if (res.status === 401) return "got 401 - Vercel Deployment Protection is on";
       // A 200 or a 404 (the made-up brand does not exist) both mean the page was reached without signing in.
       if (res.status === 200 || res.status === 404) {
@@ -38,7 +44,7 @@ const checks: Check[] = [
   {
     name: "MCP endpoint rejects calls without a token",
     run: async () => {
-      const res = await fetch(`${base}/api/mcp`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const res = await fetch(`${base}/api/mcp`, { method: "POST", headers: { ...bypass, "content-type": "application/json" }, body: "{}" });
       return res.status === 401 ? null : `expected 401, got ${res.status}`;
     },
   },
@@ -47,7 +53,7 @@ const checks: Check[] = [
     run: async () => {
       const res = await fetch(`${base}/api/mcp`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: "Bearer hm_not_a_real_token" },
+        headers: { ...bypass, "content-type": "application/json", authorization: "Bearer hm_not_a_real_token" },
         body: "{}",
       });
       return res.status === 401 ? null : `expected 401, got ${res.status}`;
@@ -74,7 +80,7 @@ if (process.env.MCP_TOKEN) {
       try {
         await client.connect(
           new StreamableHTTPClientTransport(new URL("/api/mcp", base), {
-            requestInit: { headers: { Authorization: `Bearer ${process.env.MCP_TOKEN}` } },
+            requestInit: { headers: { ...bypass, Authorization: `Bearer ${process.env.MCP_TOKEN}` } },
           }),
         );
         const { tools } = await client.listTools();
