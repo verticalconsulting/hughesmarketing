@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "root": "C:\\Users\\ogDevOps\\Google Drive Streaming\\My Drive\\AI Assets",
+  "createdAt": "2026-10-08T04:48:10.455Z",
+  "moves": [
+    {
+      "from": "Bradleybrowninc.com/workflow-results/965c939f-b5b9-49d7-b511-e22700c3f9f1-seo-site-audit.md",
+      "to": "Bradleybrowninc.com/resources/workflow-results/seo-site-audit/2026-09-10/965c939f-b5b9-49d7-b511-e22700c3f9f1-seo-site-audit.md",
+      "reason": "workflow-results"
+    },
+    {
+      "from": "Bradleybrowninc.com/workflow-results/bda63dbc-fbf3-4ee3-af90-06d2bfb50f9c-social-content-calendar.md",
+      "to": "Bradleybrowninc.com/resources/workflow-results/social-content-calendar/2026-09-14/bda63dbc-fbf3-4ee3-af90-06d2bfb50f9c-social-content-calendar.md",
+      "reason": "workflow-results"
+    },
+    {
+      "from": "Bradleybrowninc.com/workflow-results/fbe04b66-0e7f-4550-b075-ae01eae66d84-ai-search-optimization.md",
+      "to": "Bradleybrowninc.com/resources/workflow-results/ai-search-optimization/2026-09-14/fbe04b66-0e7f-4550-b075-ae01eae66d84-ai-search-optimization.md",
+      "reason": "workflow-results"
+    },
+    {
+      "from": "Midstatewelding.com/Shop Photos/MidState Welding Photos/IMG_2760 (1).jpeg",
+      "to": "_Duplicates-to-delete/Midstatewelding.com-IMG_2760-copy1.jpeg",
+      "reason": "duplicate",
+      "detail": "identical to Shop Photos/MidState Welding Photos/IMG_2760.jpeg"
+    },
+    {
+      "from": "Midstatewelding.com/Shop Photos/MidState Welding Photos/IMG_2784 (1).jpeg",
+      "to": "_Duplicates-to-delete/Midstatewelding.com-IMG_2784-copy1.jpeg",
+      "reason": "duplicate",
+      "detail": "identical to Shop Photos/MidState Welding Photos/IMG_2784.jpeg"
+    },
+    {
+      "from": "Midstatewelding.com/workflow-results/2ecee42d-bf0c-4cf3-b516-8bb6cbeb0a60-social-content-calendar.md",
+      "to": "Midstatewelding.com/resources/workflow-results/social-content-calendar/2026-09-24/2ecee42d-bf0c-4cf3-b516-8bb6cbeb0a60-social-content-calendar.md",
+      "reason": "workflow-results"
+    },
+    {
+      "from": "Midstatewelding.com/workflow-results/8dbf7a47-d24a-4f73-887c-90fbfae82732-pre-launch-seo-audit-report.md",
+      "to": "Midstatewelding.com/resources/workflow-results/pre-launch-seo-audit-report/2026-09-24/8dbf7a47-d24a-4f73-887c-90fbfae82732-pre-launch-seo-audit-report.md",
+      "reason": "workflow-results"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/approved-publication-copy.md",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/approved-publication-copy.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/faq-implementation (1).html",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/faq-implementation (1).html",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/faqpage-schema.json",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/faqpage-schema.json",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/llms-full.txt",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/llms-full.txt",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/publication-preflight-receipt.md",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/publication-preflight-receipt.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/publication-validation-receipt.md",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/publication-validation-receipt.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/qa-section-draft.md",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/qa-section-draft.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-answer-foundation/source-notes.md",
+      "to": "Myelitegutters.com/resources/ai-answer-foundation/source-notes.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-visibility/2026-09-22-direct-ai-answers-fact-notes.md",
+      "to": "Myelitegutters.com/resources/ai-visibility/2026-09-22-direct-ai-answers-fact-notes.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/ai-visibility/2026-09-22-direct-ai-answers-review-draft.md",
+      "to": "Myelitegutters.com/resources/ai-visibility/2026-09-22-direct-ai-answers-review-draft.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-24-faq-visible-copy.md",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-24-faq-visible-copy.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-24-faqpage-schema.json",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-24-faqpage-schema.json",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-24-geo-technical-change-set.md",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-24-geo-technical-change-set.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-24-homepage-direct-answer.md",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-24-homepage-direct-answer.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-24-lightweight-rendering-spec.md",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-24-lightweight-rendering-spec.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-29-faqpage-replacement-candidate.json",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-29-faqpage-replacement-candidate.json",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-29-geo-technical-change-set.md",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-29-geo-technical-change-set.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/geo-technical-fixes/2026-09-29-review-preview (1).html",
+      "to": "Myelitegutters.com/resources/geo-technical-fixes/2026-09-29-review-preview (1).html",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/local-service-pages/README.md",
+      "to": "Myelitegutters.com/resources/local-service-pages-2026-10-03/README.md",
+      "reason": "local-service-pages"
+    },
+    {
+      "from": "Myelitegutters.com/local-service-pages/brandon-draft-review-preview.html",
+      "to": "Myelitegutters.com/content-drafts/brandon-draft-review-preview.html",
+      "reason": "local-service-pages"
+    },
+    {
+      "from": "Myelitegutters.com/local-service-pages/brandon-gutter-installation-draft.md",
+      "to": "Myelitegutters.com/content-drafts/brandon-gutter-installation-draft.md",
+      "reason": "local-service-pages"
+    },
+    {
+      "from": "Myelitegutters.com/local-service-pages/keyword-to-page-map-2026-10-03.md",
+      "to": "Myelitegutters.com/seo-page-map/keyword-to-page-map-2026-10-03.md",
+      "reason": "local-service-pages"
+    },
+    {
+      "from": "Myelitegutters.com/local-service-pages/madison-gutter-installation-outline-verification-required.md",
+      "to": "Myelitegutters.com/content-drafts/madison-gutter-installation-outline-verification-required.md",
+      "reason": "local-service-pages"
+    },
+    {
+      "from": "Myelitegutters.com/mobile-lead-path/2026-09-28-mobile-performance-and-homepage-change-set.md",
+      "to": "Myelitegutters.com/resources/mobile-lead-path/2026-09-28-mobile-performance-and-homepage-change-set.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/paid-search/2026-09-19-brandon-local-search-test.md",
+      "to": "Myelitegutters.com/resources/paid-search/2026-09-19-brandon-local-search-test.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/paid-search/2026-10-02-brandon-test-build-receipt (2).md",
+      "to": "Myelitegutters.com/resources/paid-search/2026-10-02-brandon-test-build-receipt (2).md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/seo/2026-09-18-prioritized-seo-page-briefs.md",
+      "to": "Myelitegutters.com/resources/seo/2026-09-18-prioritized-seo-page-briefs.md",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/seo/2026-10-02-baseline-evidence.json",
+      "to": "Myelitegutters.com/resources/seo/2026-10-02-baseline-evidence.json",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/seo/2026-10-02-keyword-to-page-map (1).md",
+      "to": "_Duplicates-to-delete/Myelitegutters.com-2026-10-02-keyword-to-page-map-copy1.md",
+      "reason": "duplicate",
+      "detail": "identical to deliverables/2026-10-02-keyword-to-page-map.md"
+    },
+    {
+      "from": "Myelitegutters.com/seo/2026-10-02-prioritized-local-seo-brief (1).md",
+      "to": "_Duplicates-to-delete/Myelitegutters.com-2026-10-02-prioritized-local-seo-brief-copy1.md",
+      "reason": "duplicate",
+      "detail": "identical to deliverables/2026-10-02-prioritized-local-seo-brief.md"
+    },
+    {
+      "from": "Myelitegutters.com/seo/2026-10-02-review-preview.html",
+      "to": "Myelitegutters.com/resources/seo/2026-10-02-review-preview.html",
+      "reason": "topic-folder"
+    },
+    {
+      "from": "Myelitegutters.com/seo/prioritized-seo-page-map-2026-09-14.md",
+      "to": "Myelitegutters.com/resources/seo/prioritized-seo-page-map-2026-09-14.md",
+      "reason": "topic-folder"
+    }
+  ],
+  "done": 39
+}
